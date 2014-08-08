@@ -35,11 +35,9 @@ type Fuzzer struct {
 	maxElements int
 }
 
-// New returns a new Fuzzer. with the given custom fuzzing functions.
-//
-//
-// TODO: Make probability of getting a nil customizable.
-func New(fuzzFuncs ...interface{}) *Fuzzer {
+// New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
+// RandSource, NilChance, or NumElements in any order.
+func New() *Fuzzer {
 	f := &Fuzzer{
 		fuzzFuncs:   fuzzFuncMap{},
 		r:           rand.New(rand.NewSource(time.Now().UnixNano())),
