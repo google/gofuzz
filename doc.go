@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package gofuzz is a library for populating go objects with random values.
-package gofuzz
+package fuzz
