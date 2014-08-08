@@ -186,7 +186,9 @@ func ExampleEnum() {
 
 	f := fuzz.New().NilChance(0).Funcs(
 		func(e *MyInfo, c fuzz.Continue) {
-			switch c.Rand().Intn(2) {
+			// Note c's embedded Rand allows for direct use.
+			// We could also use c.RandBool() here.
+			switch c.Intn(2) {
 			case 0:
 				e.Type = A
 				c.Fuzz(&e.AInfo)

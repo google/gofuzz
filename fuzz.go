@@ -235,7 +235,10 @@ func (f *Fuzzer) tryCustom(v reflect.Value) bool {
 		return false
 	}
 
-	doCustom.Call([]reflect.Value{v, reflect.ValueOf(Continue{f})})
+	doCustom.Call([]reflect.Value{v, reflect.ValueOf(Continue{
+		f:    f,
+		Rand: f.r,
+	})})
 	return true
 }
 
@@ -243,6 +246,11 @@ func (f *Fuzzer) tryCustom(v reflect.Value) bool {
 // the correct source of randomness and to continue fuzzing their members.
 type Continue struct {
 	f *Fuzzer
+
+	// For convenience, Continue implements rand.Rand via embedding.
+	// Use this for generating any randomness if you want your fuzzing
+	// to be repeatable for a given seed.
+	*rand.Rand
 }
 
 // Fuzz continues fuzzing obj. obj must be a pointer.
@@ -255,23 +263,34 @@ func (c Continue) Fuzz(obj interface{}) {
 	c.f.doFuzz(v)
 }
 
-// Rand returns a *rand.Rand which you should get all random values from--
-// otherwise, the fuzzing won't be repeatable from a given seed.
-func (c Continue) Rand() *rand.Rand {
-	return c.f.r
+// RandString makes a random string up to 20 characters long. The returned string
+// may include a variety of (valid) UTF-8 encodings.
+func (c Continue) RandString() string {
+	return randString(c.Rand)
+}
+
+// RandUint64 makes random 64 bit numbers.
+// Weirdly, rand doesn't have a function that gives you 64 random bits.
+func (c Continue) RandUint64() uint64 {
+	return randUint64(c.Rand)
+}
+
+// RandBool returns true or false randomly.
+func (c Continue) RandBool() bool {
+	return randBool(c.Rand)
 }
 
 func fuzzInt(v reflect.Value, r *rand.Rand) {
-	v.SetInt(int64(RandUint64(r)))
+	v.SetInt(int64(randUint64(r)))
 }
 
 func fuzzUint(v reflect.Value, r *rand.Rand) {
-	v.SetUint(RandUint64(r))
+	v.SetUint(randUint64(r))
 }
 
 var fillFuncMap = map[reflect.Kind]func(reflect.Value, *rand.Rand){
 	reflect.Bool: func(v reflect.Value, r *rand.Rand) {
-		v.SetBool(RandBool(r))
+		v.SetBool(randBool(r))
 	},
 	reflect.Int:     fuzzInt,
 	reflect.Int8:    fuzzInt,
@@ -297,15 +316,15 @@ var fillFuncMap = map[reflect.Kind]func(reflect.Value, *rand.Rand){
 		panic("unimplemented")
 	},
 	reflect.String: func(v reflect.Value, r *rand.Rand) {
-		v.SetString(RandString(r))
+		v.SetString(randString(r))
 	},
 	reflect.UnsafePointer: func(v reflect.Value, r *rand.Rand) {
 		panic("unimplemented")
 	},
 }
 
-// RandBool returns true or false randomly.
-func RandBool(r *rand.Rand) bool {
+// randBool returns true or false randomly.
+func randBool(r *rand.Rand) bool {
 	if r.Int()&1 == 1 {
 		return true
 	}
@@ -329,9 +348,9 @@ var unicodeRanges = []charRange{
 	{'\u4e00', '\u9fff'}, // Common CJK (even longer encodings)
 }
 
-// RandString makes a random string up to 20 characters long. The returned string
-// may include a variety of (valid) UTF-8 encodings. For testing.
-func RandString(r *rand.Rand) string {
+// randString makes a random string up to 20 characters long. The returned string
+// may include a variety of (valid) UTF-8 encodings.
+func randString(r *rand.Rand) string {
 	n := r.Intn(20)
 	runes := make([]rune, n)
 	for i := range runes {
@@ -340,8 +359,8 @@ func RandString(r *rand.Rand) string {
 	return string(runes)
 }
 
-// RandUint64 makes random 64 bit numbers.
+// randUint64 makes random 64 bit numbers.
 // Weirdly, rand doesn't have a function that gives you 64 random bits.
-func RandUint64(r *rand.Rand) uint64 {
+func randUint64(r *rand.Rand) uint64 {
 	return uint64(r.Uint32())<<32 | uint64(r.Uint32())
 }
