@@ -13,9 +13,7 @@ Import with ```import "github.com/google/gofuzz"```
 You can use it on single variables:
 ```
 f := fuzz.New()
-
 var myInt int
-
 f.Fuzz(&myInt) // myInt gets a random value.
 ```
 
@@ -50,7 +48,7 @@ type MyInfo struct {
 
 f := fuzz.New().NilChance(0).Funcs(
         func(e *MyInfo, c fuzz.Continue) {
-                switch c.Rand().Intn(2) {
+                switch c.Intn(2) {
                 case 0:
                         e.Type = A
                         c.Fuzz(&e.AInfo)
