@@ -48,6 +48,8 @@ func New() *Fuzzer {
 	return f
 }
 
+// Funcs adds each entry in fuzzFuncs as a custom fuzzing function.
+//
 // Each entry in fuzzFuncs must be a function taking two parameters.
 // The first parameter must be a pointer or map. It is the variable that
 // function will fill with random data. The second parameter must be a
@@ -87,7 +89,7 @@ func (f *Fuzzer) Funcs(fuzzFuncs ...interface{}) *Fuzzer {
 	return f
 }
 
-// SetRandSource causes f to get values from the given source of randomness.
+// RandSource causes f to get values from the given source of randomness.
 // Use if you want deterministic fuzzing.
 func (f *Fuzzer) RandSource(s rand.Source) *Fuzzer {
 	f.r = rand.New(s)
