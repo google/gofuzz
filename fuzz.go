@@ -28,17 +28,22 @@ type fuzzFuncMap map[reflect.Type]reflect.Value
 
 // Fuzzer knows how to fill any object with random fields.
 type Fuzzer struct {
-	fuzzFuncs   fuzzFuncMap
-	r           *rand.Rand
-	nilChance   float64
-	minElements int
-	maxElements int
+	fuzzFuncs        fuzzFuncMap
+	defaultFuzzFuncs fuzzFuncMap
+	r                *rand.Rand
+	nilChance        float64
+	minElements      int
+	maxElements      int
 }
 
 // New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
 // RandSource, NilChance, or NumElements in any order.
 func New() *Fuzzer {
 	f := &Fuzzer{
+		defaultFuzzFuncs: fuzzFuncMap{
+			reflect.TypeOf(&time.Time{}): reflect.ValueOf(fuzzTime),
+		},
+
 		fuzzFuncs:   fuzzFuncMap{},
 		r:           rand.New(rand.NewSource(time.Now().UnixNano())),
 		nilChance:   .2,
@@ -213,7 +218,10 @@ func (f *Fuzzer) doFuzz(v reflect.Value) {
 func (f *Fuzzer) tryCustom(v reflect.Value) bool {
 	doCustom, ok := f.fuzzFuncs[v.Type()]
 	if !ok {
-		return false
+		doCustom, ok = f.defaultFuzzFuncs[v.Type()]
+		if !ok {
+			return false
+		}
 	}
 
 	switch v.Kind() {
@@ -286,6 +294,13 @@ func fuzzInt(v reflect.Value, r *rand.Rand) {
 
 func fuzzUint(v reflect.Value, r *rand.Rand) {
 	v.SetUint(randUint64(r))
+}
+
+func fuzzTime(t *time.Time, c Continue) {
+	var sec, nsec int64
+	c.Fuzz(&sec)
+	c.Fuzz(&nsec)
+	*t = time.Unix(sec, nsec)
 }
 
 var fillFuncMap = map[reflect.Kind]func(reflect.Value, *rand.Rand){
