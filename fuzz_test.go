@@ -19,6 +19,7 @@ package fuzz
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestFuzz_basic(t *testing.T) {
@@ -36,6 +37,7 @@ func TestFuzz_basic(t *testing.T) {
 		Uptr uintptr
 		S    string
 		B    bool
+		T    time.Time
 	}{}
 
 	failed := map[string]int{}
@@ -79,6 +81,9 @@ func TestFuzz_basic(t *testing.T) {
 			failed[n] = failed[n] + 1
 		}
 		if n, v := "b", obj.B; v == false {
+			failed[n] = failed[n] + 1
+		}
+		if n, v := "t", obj.T; v.IsZero() {
 			failed[n] = failed[n] + 1
 		}
 	}
