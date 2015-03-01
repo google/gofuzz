@@ -154,20 +154,45 @@ func (f *Fuzzer) Fuzz(obj interface{}) {
 		panic("needed ptr!")
 	}
 	v = v.Elem()
-	f.doFuzz(v)
+	f.doFuzz(v, 0)
 }
 
-func (f *Fuzzer) doFuzz(v reflect.Value) {
+// FuzzNoCustom is just like Fuzz, except that any custom fuzz function for
+// obj's type will not be called and obj will not be tested for fuzz.Interface
+// conformance.  This applies only to obj and not other instances of obj's
+// type.
+// Not safe for cyclic or tree-like structs!
+// obj must be a pointer. Only exported (public) fields can be set (thanks, golang :/ )
+// Intended for tests, so will panic on bad input or unimplemented fields.
+func (f *Fuzzer) FuzzNoCustom(obj interface{}) {
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Ptr {
+		panic("needed ptr!")
+	}
+	v = v.Elem()
+	f.doFuzz(v, flagNoCustomFuzz)
+}
+
+const (
+	// Do not try to find a custom fuzz function.  Does not apply recursively.
+	flagNoCustomFuzz uint64 = 1 << iota
+)
+
+func (f *Fuzzer) doFuzz(v reflect.Value, flags uint64) {
 	if !v.CanSet() {
 		return
 	}
-	// Check for both pointer and non-pointer custom functions.
-	if v.CanAddr() && f.tryCustom(v.Addr()) {
-		return
+
+	if flags&flagNoCustomFuzz == 0 {
+		// Check for both pointer and non-pointer custom functions.
+		if v.CanAddr() && f.tryCustom(v.Addr()) {
+			return
+		}
+		if f.tryCustom(v) {
+			return
+		}
 	}
-	if f.tryCustom(v) {
-		return
-	}
+
 	if fn, ok := fillFuncMap[v.Kind()]; ok {
 		fn(v, f.r)
 		return
@@ -179,9 +204,9 @@ func (f *Fuzzer) doFuzz(v reflect.Value) {
 			n := f.genElementCount()
 			for i := 0; i < n; i++ {
 				key := reflect.New(v.Type().Key()).Elem()
-				f.doFuzz(key)
+				f.doFuzz(key, 0)
 				val := reflect.New(v.Type().Elem()).Elem()
-				f.doFuzz(val)
+				f.doFuzz(val, 0)
 				v.SetMapIndex(key, val)
 			}
 			return
@@ -190,7 +215,7 @@ func (f *Fuzzer) doFuzz(v reflect.Value) {
 	case reflect.Ptr:
 		if f.genShouldFill() {
 			v.Set(reflect.New(v.Type().Elem()))
-			f.doFuzz(v.Elem())
+			f.doFuzz(v.Elem(), 0)
 			return
 		}
 		v.Set(reflect.Zero(v.Type()))
@@ -199,14 +224,14 @@ func (f *Fuzzer) doFuzz(v reflect.Value) {
 			n := f.genElementCount()
 			v.Set(reflect.MakeSlice(v.Type(), n, n))
 			for i := 0; i < n; i++ {
-				f.doFuzz(v.Index(i))
+				f.doFuzz(v.Index(i), 0)
 			}
 			return
 		}
 		v.Set(reflect.Zero(v.Type()))
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
-			f.doFuzz(v.Field(i))
+			f.doFuzz(v.Field(i), 0)
 		}
 	case reflect.Array:
 		fallthrough
@@ -293,7 +318,20 @@ func (c Continue) Fuzz(obj interface{}) {
 		panic("needed ptr!")
 	}
 	v = v.Elem()
-	c.f.doFuzz(v)
+	c.f.doFuzz(v, 0)
+}
+
+// FuzzNoCustom continues fuzzing obj, except that any custom fuzz function for
+// obj's type will not be called and obj will not be tested for fuzz.Interface
+// conformance.  This applies only to obj and not other instances of obj's
+// type.
+func (c Continue) FuzzNoCustom(obj interface{}) {
+	v := reflect.ValueOf(obj)
+	if v.Kind() != reflect.Ptr {
+		panic("needed ptr!")
+	}
+	v = v.Elem()
+	c.f.doFuzz(v, flagNoCustomFuzz)
 }
 
 // RandString makes a random string up to 20 characters long. The returned string

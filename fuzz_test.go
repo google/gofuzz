@@ -320,3 +320,65 @@ func TestFuzz_interfaceAndFunc(t *testing.T) {
 		return 1, true
 	})
 }
+
+func TestFuzz_noCustom(t *testing.T) {
+	type Inner struct {
+		Str string
+	}
+	type Outer struct {
+		Str string
+		In  Inner
+	}
+
+	testPhrase := "gotcalled"
+	f := New().Funcs(
+		func(outer *Outer, c Continue) {
+			outer.Str = testPhrase
+			c.Fuzz(&outer.In)
+		},
+		func(inner *Inner, c Continue) {
+			inner.Str = testPhrase
+		},
+	)
+	c := Continue{f: f, Rand: f.r}
+
+	// Fuzzer.Fuzz()
+	obj1 := Outer{}
+	f.Fuzz(&obj1)
+	if obj1.Str != testPhrase {
+		t.Errorf("expected Outer custom function to have been called")
+	}
+	if obj1.In.Str != testPhrase {
+		t.Errorf("expected Inner custom function to have been called")
+	}
+
+	// Continue.Fuzz()
+	obj2 := Outer{}
+	c.Fuzz(&obj2)
+	if obj2.Str != testPhrase {
+		t.Errorf("expected Outer custom function to have been called")
+	}
+	if obj2.In.Str != testPhrase {
+		t.Errorf("expected Inner custom function to have been called")
+	}
+
+	// Fuzzer.FuzzNoCustom()
+	obj3 := Outer{}
+	f.FuzzNoCustom(&obj3)
+	if obj3.Str == testPhrase {
+		t.Errorf("expected Outer custom function to not have been called")
+	}
+	if obj3.In.Str != testPhrase {
+		t.Errorf("expected Inner custom function to have been called")
+	}
+
+	// Continue.FuzzNoCustom()
+	obj4 := Outer{}
+	c.FuzzNoCustom(&obj4)
+	if obj4.Str == testPhrase {
+		t.Errorf("expected Outer custom function to not have been called")
+	}
+	if obj4.In.Str != testPhrase {
+		t.Errorf("expected Inner custom function to have been called")
+	}
+}
