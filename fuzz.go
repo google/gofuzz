@@ -136,8 +136,16 @@ func (f *Fuzzer) genShouldFill() bool {
 	return f.r.Float64() > f.nilChance
 }
 
-// Fuzz recursively fills all of obj's fields with something random.
+// Fuzz recursively fills all of obj's fields with something random.  First
+// this tries to find a custom fuzz function (see Funcs).  If there is no
+// custom function this tests whether the object implements fuzz.Interface and,
+// if so, calls Fuzz on it to fuzz itself.  If that fails, this will see if
+// there is a default fuzz function provided by this package.  If all of that
+// fails, this will generate random values for all primitive fields and then
+// recurse for all non-primitives.
+//
 // Not safe for cyclic or tree-like structs!
+//
 // obj must be a pointer. Only exported (public) fields can be set (thanks, golang :/ )
 // Intended for tests, so will panic on bad input or unimplemented fields.
 func (f *Fuzzer) Fuzz(obj interface{}) {
@@ -216,8 +224,18 @@ func (f *Fuzzer) doFuzz(v reflect.Value) {
 // tryCustom searches for custom handlers, and returns true iff it finds a match
 // and successfully randomizes v.
 func (f *Fuzzer) tryCustom(v reflect.Value) bool {
+	// First: see if we have a fuzz function for it.
 	doCustom, ok := f.fuzzFuncs[v.Type()]
 	if !ok {
+		// Second: see if it can fuzz itself.
+		if v.CanInterface() {
+			intf := v.Interface()
+			if fuzzable, ok := intf.(Interface); ok {
+				fuzzable.Fuzz(Continue{f: f, Rand: f.r})
+				return true
+			}
+		}
+		// Finally: see if there is a default fuzz function.
 		doCustom, ok = f.defaultFuzzFuncs[v.Type()]
 		if !ok {
 			return false
@@ -248,6 +266,13 @@ func (f *Fuzzer) tryCustom(v reflect.Value) bool {
 		Rand: f.r,
 	})})
 	return true
+}
+
+// Interface represents an object that knows how to fuzz itself.  Any time we
+// find a type that implements this interface we will delegate the act of
+// fuzzing itself.
+type Interface interface {
+	Fuzz(c Continue)
 }
 
 // Continue can be passed to custom fuzzing functions to allow them to use

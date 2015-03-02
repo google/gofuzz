@@ -261,3 +261,62 @@ func TestFuzz_custom(t *testing.T) {
 		return 7, true
 	})
 }
+
+type SelfFuzzer string
+
+// Implement fuzz.Interface.
+func (sf *SelfFuzzer) Fuzz(c Continue) {
+	*sf = selfFuzzerTestPhrase
+}
+
+const selfFuzzerTestPhrase = "was fuzzed"
+
+func TestFuzz_interface(t *testing.T) {
+	f := New()
+
+	var obj1 SelfFuzzer
+	tryFuzz(t, f, &obj1, func() (int, bool) {
+		if obj1 != selfFuzzerTestPhrase {
+			return 1, false
+		}
+		return 1, true
+	})
+
+	var obj2 map[int]SelfFuzzer
+	tryFuzz(t, f, &obj2, func() (int, bool) {
+		for _, v := range obj2 {
+			if v != selfFuzzerTestPhrase {
+				return 1, false
+			}
+		}
+		return 1, true
+	})
+}
+
+func TestFuzz_interfaceAndFunc(t *testing.T) {
+	const privateTestPhrase = "private phrase"
+	f := New().Funcs(
+		// This should take precedence over SelfFuzzer.Fuzz().
+		func(s *SelfFuzzer, c Continue) {
+			*s = privateTestPhrase
+		},
+	)
+
+	var obj1 SelfFuzzer
+	tryFuzz(t, f, &obj1, func() (int, bool) {
+		if obj1 != privateTestPhrase {
+			return 1, false
+		}
+		return 1, true
+	})
+
+	var obj2 map[int]SelfFuzzer
+	tryFuzz(t, f, &obj2, func() (int, bool) {
+		for _, v := range obj2 {
+			if v != privateTestPhrase {
+				return 1, false
+			}
+		}
+		return 1, true
+	})
+}
