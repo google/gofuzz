@@ -39,13 +39,17 @@ type Fuzzer struct {
 // New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
 // RandSource, NilChance, or NumElements in any order.
 func New() *Fuzzer {
+	return NewWithSeed(time.Now().UnixNano())
+}
+
+func NewWithSeed(seed int64) *Fuzzer {
 	f := &Fuzzer{
 		defaultFuzzFuncs: fuzzFuncMap{
 			reflect.TypeOf(&time.Time{}): reflect.ValueOf(fuzzTime),
 		},
 
 		fuzzFuncs:   fuzzFuncMap{},
-		r:           rand.New(rand.NewSource(time.Now().UnixNano())),
+		r:           rand.New(rand.NewSource(seed)),
 		nilChance:   .2,
 		minElements: 1,
 		maxElements: 10,
