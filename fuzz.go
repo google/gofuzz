@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -150,6 +151,13 @@ func (f *Fuzzer) MaxDepth(d int) *Fuzzer {
 	return f
 }
 
+// Skip fields with the following prefixes. This is useful to skip XXX_ fields generated
+// by protobuf
+func (f *Fuzzer) SkipFieldsWithPrefix(prefix string) *Fuzzer {
+	f.skipPrefixes = append(f.skipPrefixes, prefix)
+	return f
+}
+
 // Fuzz recursively fills all of obj's fields with something random.  First
 // this tries to find a custom fuzz function (see Funcs).  If there is no
 // custom function this tests whether the object implements fuzz.Interface and,
@@ -274,7 +282,17 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 		v.Set(reflect.Zero(v.Type()))
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
-			fc.doFuzz(v.Field(i), 0)
+			skipField := false
+			fieldName := v.Type().Field(i).Name
+			for _, prefix := range fc.fuzzer.skipPrefixes {
+				if strings.HasPrefix(fieldName, prefix) {
+					skipField = true
+					break
+				}
+			}
+			if !skipField {
+				fc.doFuzz(v.Field(i), 0)
+			}
 		}
 	case reflect.Chan:
 		fallthrough
