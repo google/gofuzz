@@ -36,6 +36,7 @@ type Fuzzer struct {
 	minElements      int
 	maxElements      int
 	maxDepth         int
+	skipPrefixes     []string
 }
 
 // New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
