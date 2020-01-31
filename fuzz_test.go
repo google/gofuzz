@@ -540,8 +540,8 @@ func Test_charRange_choose(t *testing.T) {
 	t.Run("Picks last", func(t *testing.T) {
 		r := customInt63{mode: modeLast}
 		letter := lowercaseLetters.choose(r)
-		if letter != 'y' {
-			t.Errorf("Expected y, got %v", letter)
+		if letter != 'z' {
+			t.Errorf("Expected z, got %v", letter)
 		}
 	})
 }

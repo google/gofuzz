@@ -482,7 +482,7 @@ type charRange struct {
 // choose returns a random unicode character from the given range, using the
 // given randomness source.
 func (cr charRange) choose(r int63nPicker) rune {
-	count := int64(cr.last - cr.first)
+	count := int64(cr.last - cr.first + 1)
 	return cr.first + rune(r.Int63n(count))
 }
 
