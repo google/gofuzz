@@ -450,10 +450,10 @@ var fillFuncMap = map[reflect.Kind]func(reflect.Value, *rand.Rand){
 		v.SetFloat(r.Float64())
 	},
 	reflect.Complex64: func(v reflect.Value, r *rand.Rand) {
-		panic("unimplemented")
+		v.SetComplex(complex128(complex(r.Float32(), r.Float32())))
 	},
 	reflect.Complex128: func(v reflect.Value, r *rand.Rand) {
-		panic("unimplemented")
+		v.SetComplex(complex(r.Float64(), r.Float64()))
 	},
 	reflect.String: func(v reflect.Value, r *rand.Rand) {
 		v.SetString(randString(r))
