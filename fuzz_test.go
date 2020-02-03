@@ -39,6 +39,8 @@ func TestFuzz_basic(t *testing.T) {
 		S    string
 		B    bool
 		T    time.Time
+		C64  complex64
+		C128 complex128
 	}{}
 
 	failed := map[string]int{}
@@ -85,6 +87,12 @@ func TestFuzz_basic(t *testing.T) {
 			failed[n] = failed[n] + 1
 		}
 		if n, v := "t", obj.T; v.IsZero() {
+			failed[n] = failed[n] + 1
+		}
+		if n, v := "c64", obj.C64; v == 0 {
+			failed[n] = failed[n] + 1
+		}
+		if n, v := "c128", obj.C128; v == 0 {
 			failed[n] = failed[n] + 1
 		}
 	}
