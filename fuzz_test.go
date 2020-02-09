@@ -17,6 +17,7 @@ limitations under the License.
 package fuzz
 
 import (
+	"math/rand"
 	"reflect"
 	"regexp"
 	"testing"
@@ -42,8 +43,10 @@ func TestFuzz_basic(t *testing.T) {
 	}{}
 
 	failed := map[string]int{}
+	f := New().
+		RandSource(rand.NewSource(10))
 	for i := 0; i < 10; i++ {
-		New().Fuzz(obj)
+		f.Fuzz(obj)
 
 		if n, v := "i", obj.I; v == 0 {
 			failed[n] = failed[n] + 1
@@ -106,7 +109,9 @@ func TestFuzz_structptr(t *testing.T) {
 		}
 	}{}
 
-	f := New().NilChance(.5)
+	f := New().
+		RandSource(rand.NewSource(10)).
+		NilChance(.5)
 	failed := map[string]int{}
 	for i := 0; i < 10; i++ {
 		f.Fuzz(obj)
@@ -151,7 +156,10 @@ func TestFuzz_structmap(t *testing.T) {
 		B map[string]string
 	}{}
 
-	tryFuzz(t, New(), obj, func() (int, bool) {
+	f := New().
+		RandSource(rand.NewSource(10))
+
+	tryFuzz(t, f, obj, func() (int, bool) {
 		if obj.A == nil {
 			return 1, false
 		}
@@ -193,7 +201,10 @@ func TestFuzz_structslice(t *testing.T) {
 		B []string
 	}{}
 
-	tryFuzz(t, New(), obj, func() (int, bool) {
+	f := New().
+		RandSource(rand.NewSource(10))
+
+	tryFuzz(t, f, obj, func() (int, bool) {
 		if obj.A == nil {
 			return 1, false
 		}
@@ -229,7 +240,10 @@ func TestFuzz_structarray(t *testing.T) {
 		B [2]int
 	}{}
 
-	tryFuzz(t, New(), obj, func() (int, bool) {
+	f := New().
+		RandSource(rand.NewSource(10))
+
+	tryFuzz(t, f, obj, func() (int, bool) {
 		for _, v := range obj.A {
 			if v.S == "" {
 				return 1, false
@@ -255,14 +269,16 @@ func TestFuzz_custom(t *testing.T) {
 
 	testPhrase := "gotcalled"
 	testMap := map[string]string{"C": "D"}
-	f := New().Funcs(
-		func(s *string, c Continue) {
-			*s = testPhrase
-		},
-		func(m map[string]string, c Continue) {
-			m["C"] = "D"
-		},
-	)
+	f := New().
+		RandSource(rand.NewSource(10)).
+		Funcs(
+			func(s *string, c Continue) {
+				*s = testPhrase
+			},
+			func(m map[string]string, c Continue) {
+				m["C"] = "D"
+			},
+		)
 
 	tryFuzz(t, f, obj, func() (int, bool) {
 		if obj.A != testPhrase {
@@ -297,7 +313,8 @@ func (sf *SelfFuzzer) Fuzz(c Continue) {
 const selfFuzzerTestPhrase = "was fuzzed"
 
 func TestFuzz_interface(t *testing.T) {
-	f := New()
+	f := New().
+		RandSource(rand.NewSource(10))
 
 	var obj1 SelfFuzzer
 	tryFuzz(t, f, &obj1, func() (int, bool) {
@@ -320,12 +337,14 @@ func TestFuzz_interface(t *testing.T) {
 
 func TestFuzz_interfaceAndFunc(t *testing.T) {
 	const privateTestPhrase = "private phrase"
-	f := New().Funcs(
-		// This should take precedence over SelfFuzzer.Fuzz().
-		func(s *SelfFuzzer, c Continue) {
-			*s = privateTestPhrase
-		},
-	)
+	f := New().
+		RandSource(rand.NewSource(10)).
+		Funcs(
+			// This should take precedence over SelfFuzzer.Fuzz().
+			func(s *SelfFuzzer, c Continue) {
+				*s = privateTestPhrase
+			},
+		)
 
 	var obj1 SelfFuzzer
 	tryFuzz(t, f, &obj1, func() (int, bool) {
@@ -356,15 +375,17 @@ func TestFuzz_noCustom(t *testing.T) {
 	}
 
 	testPhrase := "gotcalled"
-	f := New().Funcs(
-		func(outer *Outer, c Continue) {
-			outer.Str = testPhrase
-			c.Fuzz(&outer.In)
-		},
-		func(inner *Inner, c Continue) {
-			inner.Str = testPhrase
-		},
-	)
+	f := New().
+		RandSource(rand.NewSource(10)).
+		Funcs(
+			func(outer *Outer, c Continue) {
+				outer.Str = testPhrase
+				c.Fuzz(&outer.In)
+			},
+			func(inner *Inner, c Continue) {
+				inner.Str = testPhrase
+			},
+		)
 	c := Continue{fc: &fuzzerContext{fuzzer: f}, Rand: f.r}
 
 	// Fuzzer.Fuzz()
@@ -409,7 +430,9 @@ func TestFuzz_noCustom(t *testing.T) {
 }
 
 func TestFuzz_NumElements(t *testing.T) {
-	f := New().NilChance(0).NumElements(0, 1)
+	f := New().
+		RandSource(rand.NewSource(10)).
+		NilChance(0).NumElements(0, 1)
 	obj := &struct {
 		A []int
 	}{}
@@ -433,7 +456,9 @@ func TestFuzz_Maxdepth(t *testing.T) {
 		S *S
 	}
 
-	f := New().NilChance(0)
+	f := New().
+		RandSource(rand.NewSource(10)).
+		NilChance(0)
 
 	f.MaxDepth(1)
 	for i := 0; i < 100; i++ {
@@ -485,7 +510,10 @@ func TestFuzz_SkipPattern(t *testing.T) {
 		}
 	}{}
 
-	f := New().NilChance(0).SkipFieldsWithPattern(regexp.MustCompile(`^XXX_`))
+	f := New().
+		RandSource(rand.NewSource(10)).
+		NilChance(0).
+		SkipFieldsWithPattern(regexp.MustCompile(`^XXX_`))
 	f.Fuzz(obj)
 
 	tryFuzz(t, f, obj, func() (int, bool) {
