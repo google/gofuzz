@@ -471,15 +471,19 @@ func randBool(r *rand.Rand) bool {
 	return false
 }
 
+type int63nPicker interface {
+	Int63n(int64) int64
+}
+
 type charRange struct {
 	first, last rune
 }
 
 // choose returns a random unicode character from the given range, using the
 // given randomness source.
-func (r *charRange) choose(rand *rand.Rand) rune {
-	count := int64(r.last - r.first)
-	return r.first + rune(rand.Int63n(count))
+func (cr charRange) choose(r int63nPicker) rune {
+	count := int64(cr.last - cr.first + 1)
+	return cr.first + rune(r.Int63n(count))
 }
 
 var unicodeRanges = []charRange{

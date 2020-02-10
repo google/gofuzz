@@ -17,6 +17,7 @@ limitations under the License.
 package fuzz
 
 import (
+	"math/rand"
 	"reflect"
 	"regexp"
 	"testing"
@@ -510,5 +511,45 @@ func TestFuzz_SkipPattern(t *testing.T) {
 			return 4, false
 		}
 		return 5, true
+	})
+}
+
+type int63mode int
+
+const (
+	modeRandom int63mode = iota
+	modeFirst
+	modeLast
+)
+
+type customInt63 struct {
+	mode int63mode
+}
+
+func (c customInt63) Int63n(n int64) int64 {
+	switch c.mode {
+	case modeFirst: return 0
+	case modeLast: return n-1
+	default: return rand.Int63n(n)
+	}
+}
+
+func Test_charRange_choose(t *testing.T) {
+	lowercaseLetters := charRange{'a', 'z'}
+
+	t.Run("Picks first", func(t *testing.T) {
+		r := customInt63{mode: modeFirst}
+		letter := lowercaseLetters.choose(r)
+		if letter != 'a' {
+			t.Errorf("Expected a, got %v", letter)
+		}
+	})
+
+	t.Run("Picks last", func(t *testing.T) {
+		r := customInt63{mode: modeLast}
+		letter := lowercaseLetters.choose(r)
+		if letter != 'z' {
+			t.Errorf("Expected z, got %v", letter)
+		}
 	})
 }
