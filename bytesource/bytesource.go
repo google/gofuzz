@@ -20,6 +20,7 @@ package bytesource
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"math/rand"
 )
 
@@ -73,7 +74,7 @@ func (s *ByteSource) Seed(seed int64) {
 func (s *ByteSource) consumeUint64() uint64 {
 	var bytes [8]byte
 	_, err := s.Read(bytes[:])
-	if err != nil {
+	if err != nil && err != io.EOF {
 		panic("failed reading source") // Should not happen.
 	}
 	return binary.BigEndian.Uint64(bytes[:])
