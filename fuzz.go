@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"regexp"
 	"time"
+
+	"github.com/google/gofuzz/bytesource"
 )
 
 // fuzzFuncMap is a map from a type to a fuzzFunc that handles that type.
@@ -59,6 +61,34 @@ func NewWithSeed(seed int64) *Fuzzer {
 		maxDepth:    100,
 	}
 	return f
+}
+
+// NewFromGoFuzz is a helper function that enables using gofuzz (this
+// project) with go-fuzz (https://github.com/dvyukov/go-fuzz) for continuous
+// fuzzing. Essentially, it enables translating the fuzzing bytes from
+// go-fuzz to any Go object using this library.
+//
+// This implementation promises a constant translation from a given slice of
+// bytes to the fuzzed objects. This promise will remain over future
+// versions of Go and of this library.
+//
+// Note: the returned Fuzzer should not be shared between multiple goroutines,
+// as its deterministic output will no longer be available.
+//
+// Example: use go-fuzz to test the function `MyFunc(int)` in the package
+// `mypackage`. Add the file: "mypacakge_fuzz.go" with the content:
+//
+// // +build gofuzz
+// package mypacakge
+// import "github.com/google/go-fuzz"
+// func Fuzz(data []byte) int {
+// 	var i int
+// 	fuzz.NewFromGoFuzz(data).Fuzz(&i)
+// 	MyFunc(i)
+// 	return 0
+// }
+func NewFromGoFuzz(data []byte) *Fuzzer {
+	return New().RandSource(bytesource.New(data))
 }
 
 // Funcs adds each entry in fuzzFuncs as a custom fuzzing function.

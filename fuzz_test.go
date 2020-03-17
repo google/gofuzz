@@ -553,3 +553,16 @@ func Test_charRange_choose(t *testing.T) {
 		}
 	})
 }
+
+func TestNewFromGoFuzz(t *testing.T) {
+	t.Parallel()
+
+	input := []byte{1, 2, 3}
+
+	var got int
+	NewFromGoFuzz(input).Fuzz(&got)
+
+	if want := 5563767293437588600; want != got {
+		t.Errorf("Fuzz(%q) = %d, want: %d", input, got, want)
+	}
+}
