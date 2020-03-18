@@ -482,7 +482,7 @@ func TestFuzz_Maxdepth(t *testing.T) {
 }
 
 func TestFuzz_SkipPattern(t *testing.T) {
-	obj := &struct {
+	obj := struct {
 		S1    string
 		S2    string
 		XXX_S string
@@ -492,12 +492,11 @@ func TestFuzz_SkipPattern(t *testing.T) {
 			XXX_S1 string
 			S2_XXX string
 		}
+		XXX_ERR error
 	}{}
 
 	f := New().NilChance(0).SkipFieldsWithPattern(regexp.MustCompile(`^XXX_`))
-	f.Fuzz(obj)
-
-	tryFuzz(t, f, obj, func() (int, bool) {
+	tryFuzz(t, f, &obj, func() (int, bool) {
 		if obj.XXX_S != "" {
 			return 1, false
 		}

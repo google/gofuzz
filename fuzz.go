@@ -332,6 +332,11 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	case reflect.Interface:
 		fallthrough
 	default:
+		for _, pattern := range fc.fuzzer.skipFieldPatterns {
+			if pattern.MatchString(v.Type().Name()) {
+				return
+			}
+		}
 		panic(fmt.Sprintf("Can't handle %#v", v.Interface()))
 	}
 }
