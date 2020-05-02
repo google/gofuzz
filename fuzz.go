@@ -80,7 +80,7 @@ func NewWithSeed(seed int64) *Fuzzer {
 //
 // // +build gofuzz
 // package mypacakge
-// import "github.com/google/go-fuzz"
+// import fuzz "github.com/google/gofuzz"
 // func Fuzz(data []byte) int {
 // 	var i int
 // 	fuzz.NewFromGoFuzz(data).Fuzz(&i)

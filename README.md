@@ -76,7 +76,7 @@ example a fuzz test for a the function `mypackage.MyFunc` that takes an int argu
 // +build gofuzz
 package mypackage
 
-import "github.com/google/go-fuzz"
+import fuzz "github.com/google/gofuzz"
 
 func Fuzz(data []byte) int {
         var i int
