@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/gofuzz/bytesource"
+	"strings"
 )
 
 // fuzzFuncMap is a map from a type to a fuzzFunc that handles that type.
@@ -523,11 +524,12 @@ var unicodeRanges = []charRange{
 // may include a variety of (valid) UTF-8 encodings.
 func randString(r *rand.Rand) string {
 	n := r.Intn(20)
-	runes := make([]rune, n)
-	for i := range runes {
-		runes[i] = unicodeRanges[r.Intn(len(unicodeRanges))].choose(r)
+	sb := strings.Builder{}
+	sb.Grow(n)
+	for i := 0 ;i<n; i++ {
+		sb.WriteRune(unicodeRanges[r.Intn(len(unicodeRanges))].choose(r))
 	}
-	return string(runes)
+	return sb.String()
 }
 
 // randUint64 makes random 64 bit numbers.
