@@ -566,3 +566,19 @@ func TestNewFromGoFuzz(t *testing.T) {
 		t.Errorf("Fuzz(%q) = %d, want: %d", input, got, want)
 	}
 }
+
+func BenchmarkRandBool(b *testing.B) {
+	rs := rand.New(rand.NewSource(123))
+
+	for i := 0; i < b.N; i++ {
+			randBool(rs)
+    }
+}
+
+func BenchmarkRandString(b *testing.B) {
+	rs := rand.New(rand.NewSource(123))
+
+	for i := 0; i < b.N; i++ {
+			randString(rs)
+    }
+}
