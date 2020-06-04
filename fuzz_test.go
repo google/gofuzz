@@ -528,9 +528,12 @@ type customInt63 struct {
 
 func (c customInt63) Int63n(n int64) int64 {
 	switch c.mode {
-	case modeFirst: return 0
-	case modeLast: return n-1
-	default: return rand.Int63n(n)
+	case modeFirst:
+		return 0
+	case modeLast:
+		return n - 1
+	default:
+		return rand.Int63n(n)
 	}
 }
 
@@ -571,14 +574,14 @@ func BenchmarkRandBool(b *testing.B) {
 	rs := rand.New(rand.NewSource(123))
 
 	for i := 0; i < b.N; i++ {
-			randBool(rs)
-    }
+		randBool(rs)
+	}
 }
 
 func BenchmarkRandString(b *testing.B) {
 	rs := rand.New(rand.NewSource(123))
 
 	for i := 0; i < b.N; i++ {
-			randString(rs)
-    }
+		randString(rs)
+	}
 }

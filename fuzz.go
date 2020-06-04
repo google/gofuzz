@@ -526,7 +526,7 @@ func randString(r *rand.Rand) string {
 	n := r.Intn(20)
 	sb := strings.Builder{}
 	sb.Grow(n)
-	for i := 0 ;i<n; i++ {
+	for i := 0; i < n; i++ {
 		sb.WriteRune(unicodeRanges[r.Intn(len(unicodeRanges))].choose(r))
 	}
 	return sb.String()
