@@ -40,6 +40,7 @@ type Fuzzer struct {
 	maxElements       int
 	maxDepth          int
 	skipFieldPatterns []*regexp.Regexp
+	isChineseChar     bool
 }
 
 // New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
@@ -190,6 +191,12 @@ func (f *Fuzzer) SkipFieldsWithPattern(pattern *regexp.Regexp) *Fuzzer {
 	return f
 }
 
+// With Chinese char set rand string return char with utf-8, rand: \u4e00 - \u9fa5
+func (f *Fuzzer) WithChineseChar(b bool) *Fuzzer {
+	f.isChineseChar = b
+	return f
+}
+
 // Fuzz recursively fills all of obj's fields with something random.  First
 // this tries to find a custom fuzz function (see Funcs).  If there is no
 // custom function this tests whether the object implements fuzz.Interface and,
@@ -271,7 +278,15 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 		fn(v, fc.fuzzer.r)
 		return
 	}
+
 	switch v.Kind() {
+	case reflect.String:
+		if fc.fuzzer.isChineseChar {
+			v.SetString(randChineseString(fc.fuzzer.r))
+		} else {
+			v.SetString(randString(fc.fuzzer.r))
+		}
+
 	case reflect.Map:
 		if fc.fuzzer.genShouldFill() {
 			v.Set(reflect.MakeMap(v.Type()))
@@ -431,6 +446,12 @@ func (c Continue) RandString() string {
 	return randString(c.Rand)
 }
 
+// RandChineseString makes a random string up to 20 characters long. The returned string
+// may include a variety of (valid) UTF-8 encodings. Rand unicode: \u4e00 - \u9fa5
+func (c Continue) RandChinesesString() string {
+	return randChineseString(c.Rand)
+}
+
 // RandUint64 makes random 64 bit numbers.
 // Weirdly, rand doesn't have a function that gives you 64 random bits.
 func (c Continue) RandUint64() uint64 {
@@ -486,9 +507,6 @@ var fillFuncMap = map[reflect.Kind]func(reflect.Value, *rand.Rand){
 	reflect.Complex128: func(v reflect.Value, r *rand.Rand) {
 		v.SetComplex(complex(r.Float64(), r.Float64()))
 	},
-	reflect.String: func(v reflect.Value, r *rand.Rand) {
-		v.SetString(randString(r))
-	},
 	reflect.UnsafePointer: func(v reflect.Value, r *rand.Rand) {
 		panic("unimplemented")
 	},
@@ -518,6 +536,19 @@ var unicodeRanges = []charRange{
 	{' ', '~'},           // ASCII characters
 	{'\u00a0', '\u02af'}, // Multi-byte encoded characters
 	{'\u4e00', '\u9fff'}, // Common CJK (even longer encodings)
+	{'\u4e00', '\u9fa5'}, // Chinese characters
+}
+
+// randChineseString makes a random string up to 20 characters long. The returned string
+// may include a variety of (valid) UTF-8 encodings. Rand unicode: \u4e00 - \u9fa5
+func randChineseString(r *rand.Rand) string {
+	n := r.Intn(20)
+	sb := strings.Builder{}
+	sb.Grow(n)
+	for i := 0; i < n; i++ {
+		sb.WriteRune(unicodeRanges[3].choose(r))
+	}
+	return sb.String()
 }
 
 // randString makes a random string up to 20 characters long. The returned string
