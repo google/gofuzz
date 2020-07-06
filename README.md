@@ -20,6 +20,15 @@ var myInt int
 f.Fuzz(&myInt) // myInt gets a random value.
 ```
 
+You can use it on string with different character, like ASCII, MultiByte, 
+CommonCJK, Chinese, Japanese, Number, Lower-Case, Upper-Case or 
+Random(each rune will be one of the above character).
+```go
+f := fuzz.New()
+var myString string
+f.WithStringGenMode(fuzz.Chinese).Fuzz(&myString)
+```
+
 You can use it on maps:
 ```go
 f := fuzz.New().NilChance(0).NumElements(1, 1)

@@ -581,7 +581,11 @@ func BenchmarkRandBool(b *testing.B) {
 func BenchmarkRandString(b *testing.B) {
 	rs := rand.New(rand.NewSource(123))
 
+	modes := []int{ASCII, MultiByte, CommonCJK, Chinese, Japanese, Number, LowerCase, UpperCase, Random}
+
 	for i := 0; i < b.N; i++ {
-		randString(rs)
+		for idx := range modes {
+			randString(rs, modes[idx])
+		}
 	}
 }

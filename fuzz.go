@@ -40,7 +40,7 @@ type Fuzzer struct {
 	maxElements       int
 	maxDepth          int
 	skipFieldPatterns []*regexp.Regexp
-	isChineseChar     bool
+	stringGenMode     int
 }
 
 // New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
@@ -61,6 +61,8 @@ func NewWithSeed(seed int64) *Fuzzer {
 		minElements: 1,
 		maxElements: 10,
 		maxDepth:    100,
+		// random mode as default mode to gen string
+		stringGenMode: Random,
 	}
 	return f
 }
@@ -191,9 +193,11 @@ func (f *Fuzzer) SkipFieldsWithPattern(pattern *regexp.Regexp) *Fuzzer {
 	return f
 }
 
-// With Chinese char set rand string return char with utf-8, rand: \u4e00 - \u9fa5
-func (f *Fuzzer) WithChineseChar(b bool) *Fuzzer {
-	f.isChineseChar = b
+// WithStringGenMode is used to set the string generation mode. Mode includes ASCII,
+// MultiByte, CommonCJK, Chinese, Japanese, Number, Lower case, Upper case or
+// random mode(each rune will use one character.).
+func (f *Fuzzer) WithStringGenMode(mode int) *Fuzzer {
+	f.stringGenMode = mode
 	return f
 }
 
@@ -280,12 +284,10 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	}
 
 	switch v.Kind() {
+	// String is common data struct but handle it with function randString
+	// randString should input string generation mode.
 	case reflect.String:
-		if fc.fuzzer.isChineseChar {
-			v.SetString(randChineseString(fc.fuzzer.r))
-		} else {
-			v.SetString(randString(fc.fuzzer.r))
-		}
+		v.SetString(randString(fc.fuzzer.r, fc.fuzzer.stringGenMode))
 
 	case reflect.Map:
 		if fc.fuzzer.genShouldFill() {
@@ -443,7 +445,7 @@ func (c Continue) FuzzNoCustom(obj interface{}) {
 // RandString makes a random string up to 20 characters long. The returned string
 // may include a variety of (valid) UTF-8 encodings.
 func (c Continue) RandString() string {
-	return randString(c.Rand)
+	return randString(c.Rand, c.fc.fuzzer.stringGenMode)
 }
 
 // RandChineseString makes a random string up to 20 characters long. The returned string
@@ -536,8 +538,25 @@ var unicodeRanges = []charRange{
 	{' ', '~'},           // ASCII characters
 	{'\u00a0', '\u02af'}, // Multi-byte encoded characters
 	{'\u4e00', '\u9fff'}, // Common CJK (even longer encodings)
-	{'\u4e00', '\u9fa5'}, // Chinese characters
+	{'\u4e00', '\u9fa5'}, // Chinese
+	{'\u0800', '\u4e00'}, // Japanese
+	{'\u0030', '\u0039'}, // number
+	{'\u0061', '\u007a'}, // lower case
+	{'\u0041', '\u005a'}, // upper case
 }
+
+const (
+	ASCII = iota
+	MultiByte
+	CommonCJK
+	Chinese
+	Japanese
+	Number
+	LowerCase
+	UpperCase
+
+	Random = 10000
+)
 
 // randChineseString makes a random string up to 20 characters long. The returned string
 // may include a variety of (valid) UTF-8 encodings. Rand unicode: \u4e00 - \u9fa5
@@ -553,12 +572,16 @@ func randChineseString(r *rand.Rand) string {
 
 // randString makes a random string up to 20 characters long. The returned string
 // may include a variety of (valid) UTF-8 encodings.
-func randString(r *rand.Rand) string {
+func randString(r *rand.Rand, genMode int) string {
 	n := r.Intn(20)
 	sb := strings.Builder{}
 	sb.Grow(n)
 	for i := 0; i < n; i++ {
-		sb.WriteRune(unicodeRanges[r.Intn(len(unicodeRanges))].choose(r))
+		if genMode == Random {
+			sb.WriteRune(unicodeRanges[r.Intn(len(unicodeRanges))].choose(r))
+		} else {
+			sb.WriteRune(unicodeRanges[genMode].choose(r))
+		}
 	}
 	return sb.String()
 }
