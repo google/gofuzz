@@ -40,7 +40,6 @@ type Fuzzer struct {
 	maxElements       int
 	maxDepth          int
 	skipFieldPatterns []*regexp.Regexp
-	characterRange    *charRange
 }
 
 // New returns a new Fuzzer. Customize your Fuzzer further by calling Funcs,
@@ -61,8 +60,6 @@ func NewWithSeed(seed int64) *Fuzzer {
 		minElements: 1,
 		maxElements: 10,
 		maxDepth:    100,
-		// characterRange will be nil if you not set the encoding range
-		characterRange: nil,
 	}
 	return f
 }
@@ -193,15 +190,6 @@ func (f *Fuzzer) SkipFieldsWithPattern(pattern *regexp.Regexp) *Fuzzer {
 	return f
 }
 
-// WithCharRange is used to set the Unicode encoding range of the string.
-func (f *Fuzzer) WithCharRange(first, last rune) *Fuzzer {
-	f.characterRange = &charRange{
-		first: first,
-		last:  last,
-	}
-	return f
-}
-
 // Fuzz recursively fills all of obj's fields with something random.  First
 // this tries to find a custom fuzz function (see Funcs).  If there is no
 // custom function this tests whether the object implements fuzz.Interface and,
@@ -285,11 +273,6 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	}
 
 	switch v.Kind() {
-	// String is common data struct but handle it with function randString
-	// randString should input character range although it is nil
-	case reflect.String:
-		v.SetString(randString(fc.fuzzer.r, fc.fuzzer.characterRange))
-
 	case reflect.Map:
 		if fc.fuzzer.genShouldFill() {
 			v.Set(reflect.MakeMap(v.Type()))
@@ -446,7 +429,7 @@ func (c Continue) FuzzNoCustom(obj interface{}) {
 // RandString makes a random string up to 20 characters long. The returned string
 // may include a variety of (valid) UTF-8 encodings.
 func (c Continue) RandString() string {
-	return randString(c.Rand, c.fc.fuzzer.characterRange)
+	return randString(c.Rand)
 }
 
 // RandUint64 makes random 64 bit numbers.
@@ -504,6 +487,9 @@ var fillFuncMap = map[reflect.Kind]func(reflect.Value, *rand.Rand){
 	reflect.Complex128: func(v reflect.Value, r *rand.Rand) {
 		v.SetComplex(complex(r.Float64(), r.Float64()))
 	},
+	reflect.String: func(v reflect.Value, r *rand.Rand) {
+		v.SetString(randString(r))
+	},
 	reflect.UnsafePointer: func(v reflect.Value, r *rand.Rand) {
 		panic("unimplemented")
 	},
@@ -518,36 +504,65 @@ type int63nPicker interface {
 	Int63n(int64) int64
 }
 
-type charRange struct {
-	first, last rune
+// UnicodeRange is a structure that provides the developer with setting
+// one encoding range.
+type UnicodeRange struct {
+	First, Last rune
 }
+
+// UnicodeRanges is a slice that provides the developer with setting
+// the different range of Unicode
+type UnicodeRanges []UnicodeRange
 
 // choose returns a random unicode character from the given range, using the
 // given randomness source.
-func (cr charRange) choose(r int63nPicker) rune {
-	count := int64(cr.last - cr.first + 1)
-	return cr.first + rune(r.Int63n(count))
+func (cr UnicodeRange) choose(r int63nPicker) rune {
+	count := int64(cr.Last - cr.First + 1)
+	return cr.First + rune(r.Int63n(count))
 }
 
-var unicodeRanges = []charRange{
+// CustomStringFuzzFunc constructs a function which randomizes strings
+func (cr UnicodeRange) CustomStringFuzzFunc() func(s *string, c Continue) {
+	return func(s *string, c Continue) {
+		n := c.Intn(20)
+		sb := strings.Builder{}
+		sb.Grow(n)
+		for i := 0; i < n; i++ {
+			sb.WriteRune(cr.choose(c.Rand))
+		}
+		*s = sb.String()
+	}
+}
+
+// defaultUnicodeRanges sets a default unicode range when user do not set
+// CustomStringFuzzFunc() but wants fuzz string.
+var defaultUnicodeRanges = UnicodeRanges{
 	{' ', '~'},           // ASCII characters
 	{'\u00a0', '\u02af'}, // Multi-byte encoded characters
 	{'\u4e00', '\u9fff'}, // Common CJK (even longer encodings)
 }
 
+// CustomStringFuzzFunc constructs a function which randomizes strings
+func (r UnicodeRanges) CustomStringFuzzFunc() func(s *string, c Continue) {
+	return func(s *string, c Continue) {
+		n := c.Intn(20)
+		sb := strings.Builder{}
+		sb.Grow(n)
+		for i := 0; i < n; i++ {
+			sb.WriteRune(r[c.Intn(len(r))].choose(c.Rand))
+		}
+		*s = sb.String()
+	}
+}
+
 // randString makes a random string up to 20 characters long. The returned string
-// may include a variety of (valid) UTF-8 encodings. If wants specific encoding
-// string, it should input character range.
-func randString(r *rand.Rand, characterRange *charRange) string {
+// may include a variety of (valid) UTF-8 encodings.
+func randString(r *rand.Rand) string {
 	n := r.Intn(20)
 	sb := strings.Builder{}
 	sb.Grow(n)
 	for i := 0; i < n; i++ {
-		if characterRange == nil {
-			sb.WriteRune(unicodeRanges[r.Intn(len(unicodeRanges))].choose(r))
-		} else {
-			sb.WriteRune(characterRange.choose(r))
-		}
+		sb.WriteRune(defaultUnicodeRanges[r.Intn(len(defaultUnicodeRanges))].choose(r))
 	}
 	return sb.String()
 }
