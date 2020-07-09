@@ -20,44 +20,19 @@ var myInt int
 f.Fuzz(&myInt) // myInt gets a random value.
 ```
 
-If you want to use it on string with different character like Chinese or Number, 
-you can get Unicode range from [Unicode](https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane),
-and parse the low and high encoding into structure `UnicodeRange`(for one encoding), 
-or into slice `UnicodeRanges`(for multiple encoding). 
-
-For example a-z(one encoding), the string generation will only be select 
-within a encoding range.
-```go
-unicodeRange := fuzz.UnicodeRange{'a','z'}
-f := fuzz.New()
-var myString string
-f.Funcs(unicodeRange.CustomStringFuzzFunc()).Fuzz(&myString)
-```
-
-For example a-z, 0-9 (Multiple encoding), the string generation will be select 
-in different encoding ranges given.
-```go
-unicodeRanges := fuzz.UnicodeRanges{
-	{'a', 'z'},
-	{0x0030, 0x0039}, // 0 is 0x0030, 9 is 0x0039
-}
-f := fuzz.New()
-var myString string
-f.Funcs(unicodeRanges.CustomStringFuzzFunc()).Fuzz(&myString)
-```
-
-If you don't need a custom generated string, you can just use like this.
-```go
-f := fuzz.New()
-var myString string
-f.Fuzz(&myString)
-```
-
 You can use it on maps:
 ```go
 f := fuzz.New().NilChance(0).NumElements(1, 1)
 var myMap map[ComplexKeyType]string
 f.Fuzz(&myMap) // myMap will have exactly one element.
+```
+
+Customize a string within one encoding range([Unicode](https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane)). 
+```go
+unicodeRange := fuzz.UnicodeRange{'a','z'}
+f := fuzz.New().Funcs(unicodeRange.CustomStringFuzzFunc())
+var myString string
+f.Fuzz(&myString) // Each character is selected form a range: a-z.
 ```
 
 Customize the chance of getting a nil pointer:

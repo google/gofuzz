@@ -575,6 +575,12 @@ func Test_UnicodeRange_CustomStringFuzzFunc(t *testing.T) {
 	})
 }
 
+func Test_UnicodeRange_Check(t *testing.T) {
+	unicodeRange := UnicodeRange{'a', 'z'}
+
+	unicodeRange.check()
+}
+
 func Test_UnicodeRanges_CustomStringFuzzFunc(t *testing.T) {
 	a2z0to9 := "abcdefghijklmnopqrstuvwxyz0123456789"
 
@@ -621,5 +627,28 @@ func BenchmarkRandString(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		randString(rs)
+	}
+}
+
+func BenchmarkUnicodeRangeRandString(b *testing.B) {
+	unicodeRange := UnicodeRange{'a', 'z'}
+
+	rs := rand.New(rand.NewSource(123))
+
+	for i := 0; i < b.N; i++ {
+		unicodeRange.randString(rs)
+	}
+}
+
+func BenchmarkUnicodeRangesRandString(b *testing.B) {
+	unicodeRanges := UnicodeRanges{
+		{'a', 'z'},
+		{'0', '9'},
+	}
+
+	rs := rand.New(rand.NewSource(123))
+
+	for i := 0; i < b.N; i++ {
+		unicodeRanges.randString(rs)
 	}
 }

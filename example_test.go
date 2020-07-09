@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/google/gofuzz"
 )
@@ -222,4 +223,43 @@ func ExampleEnum() {
 		}
 	}
 	// Output:
+}
+
+func ExampleCustomString() {
+	a2z := "abcdefghijklmnopqrstuvwxyz"
+	a2z0to9 := "abcdefghijklmnopqrstuvwxyz0123456789"
+
+	// example for generating custom string within one unicode range.
+	var A string
+	unicodeRange := fuzz.UnicodeRange{'a', 'z'}
+
+	f := fuzz.New().Funcs(unicodeRange.CustomStringFuzzFunc())
+	f.Fuzz(&A)
+
+	for i := range A {
+		if !strings.ContainsRune(a2z, rune(A[i])) {
+			fmt.Printf("A[%d]: %v is not in range of a-z.\n", i, A[i])
+		}
+	}
+	fmt.Println("Got a string, each character is selected from  a-z.")
+
+	// example for generating custom string within multiple unicode range.
+	var B string
+	unicodeRanges := fuzz.UnicodeRanges{
+		{'a', 'z'},
+		{0x0030, 0x0039}, // 0 is 0x0030, 9 is 0x0039
+	}
+	ff := fuzz.New().Funcs(unicodeRanges.CustomStringFuzzFunc())
+	ff.Fuzz(&B)
+
+	for i := range B {
+		if !strings.ContainsRune(a2z0to9, rune(B[i])) {
+			fmt.Printf("A[%d]: %v is not in range list [ a-z, 0-9 ].\n", i, string(B[i]))
+		}
+	}
+	fmt.Println("Got a string, each character is selected from a-z, 0-9.")
+
+	// Output:
+	// Got a string, each character is selected from  a-z.
+	// Got a string, each character is selected from a-z, 0-9.
 }
