@@ -569,7 +569,7 @@ func Test_UnicodeRange_CustomStringFuzzFunc(t *testing.T) {
 	t.Run("Picks a-z string", func(t *testing.T) {
 		for i := range myString {
 			if !strings.ContainsRune(a2z, rune(myString[i])) {
-				t.Errorf("Expected a-z, got %v", rune(myString[i]))
+				t.Errorf("Expected a-z, got %v", string(myString[i]))
 			}
 		}
 	})
@@ -595,7 +595,7 @@ func Test_UnicodeRanges_CustomStringFuzzFunc(t *testing.T) {
 	t.Run("Picks a-z0-9 string", func(t *testing.T) {
 		for i := range myString {
 			if !strings.ContainsRune(a2z0to9, rune(myString[i])) {
-				t.Errorf("Expected a-z0-9, got %v", rune(myString[i]))
+				t.Errorf("Expected a-z0-9, got %v", string(myString[i]))
 			}
 		}
 	})
