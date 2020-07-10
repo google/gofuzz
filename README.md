@@ -27,14 +27,6 @@ var myMap map[ComplexKeyType]string
 f.Fuzz(&myMap) // myMap will have exactly one element.
 ```
 
-Customize a string within one encoding range([Unicode](https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane)). 
-```go
-unicodeRange := fuzz.UnicodeRange{'a','z'}
-f := fuzz.New().Funcs(unicodeRange.CustomStringFuzzFunc())
-var myString string
-f.Fuzz(&myString) // Each character is selected form a range: a-z.
-```
-
 Customize the chance of getting a nil pointer:
 ```go
 f := fuzz.New().NilChance(.5)

@@ -247,7 +247,7 @@ func ExampleCustomString() {
 	var B string
 	unicodeRanges := fuzz.UnicodeRanges{
 		{'a', 'z'},
-		{0x0030, 0x0039}, // 0 is 0x0030, 9 is 0x0039
+		{'0', '9'}, // You can also use 0x0030 as 0, 0x0039 as 9.
 	}
 	ff := fuzz.New().Funcs(unicodeRanges.CustomStringFuzzFunc())
 	ff.Fuzz(&B)
