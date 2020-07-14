@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -538,7 +539,7 @@ func (c customInt63) Int63n(n int64) int64 {
 }
 
 func Test_charRange_choose(t *testing.T) {
-	lowercaseLetters := charRange{'a', 'z'}
+	lowercaseLetters := UnicodeRange{'a', 'z'}
 
 	t.Run("Picks first", func(t *testing.T) {
 		r := customInt63{mode: modeFirst}
@@ -553,6 +554,49 @@ func Test_charRange_choose(t *testing.T) {
 		letter := lowercaseLetters.choose(r)
 		if letter != 'z' {
 			t.Errorf("Expected z, got %v", letter)
+		}
+	})
+}
+
+func Test_UnicodeRange_CustomStringFuzzFunc(t *testing.T) {
+	a2z := "abcdefghijklmnopqrstuvwxyz"
+
+	unicodeRange := UnicodeRange{'a', 'z'}
+	f := New().Funcs(unicodeRange.CustomStringFuzzFunc())
+	var myString string
+	f.Fuzz(&myString)
+
+	t.Run("Picks a-z string", func(t *testing.T) {
+		for i := range myString {
+			if !strings.ContainsRune(a2z, rune(myString[i])) {
+				t.Errorf("Expected a-z, got %v", string(myString[i]))
+			}
+		}
+	})
+}
+
+func Test_UnicodeRange_Check(t *testing.T) {
+	unicodeRange := UnicodeRange{'a', 'z'}
+
+	unicodeRange.check()
+}
+
+func Test_UnicodeRanges_CustomStringFuzzFunc(t *testing.T) {
+	a2z0to9 := "abcdefghijklmnopqrstuvwxyz0123456789"
+
+	unicodeRanges := UnicodeRanges{
+		{'a', 'z'},
+		{'0', '9'},
+	}
+	f := New().Funcs(unicodeRanges.CustomStringFuzzFunc())
+	var myString string
+	f.Fuzz(&myString)
+
+	t.Run("Picks a-z0-9 string", func(t *testing.T) {
+		for i := range myString {
+			if !strings.ContainsRune(a2z0to9, rune(myString[i])) {
+				t.Errorf("Expected a-z0-9, got %v", string(myString[i]))
+			}
 		}
 	})
 }
@@ -583,5 +627,28 @@ func BenchmarkRandString(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		randString(rs)
+	}
+}
+
+func BenchmarkUnicodeRangeRandString(b *testing.B) {
+	unicodeRange := UnicodeRange{'a', 'z'}
+
+	rs := rand.New(rand.NewSource(123))
+
+	for i := 0; i < b.N; i++ {
+		unicodeRange.randString(rs)
+	}
+}
+
+func BenchmarkUnicodeRangesRandString(b *testing.B) {
+	unicodeRanges := UnicodeRanges{
+		{'a', 'z'},
+		{'0', '9'},
+	}
+
+	rs := rand.New(rand.NewSource(123))
+
+	for i := 0; i < b.N; i++ {
+		unicodeRanges.randString(rs)
 	}
 }

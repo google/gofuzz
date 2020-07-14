@@ -271,6 +271,7 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 		fn(v, fc.fuzzer.r)
 		return
 	}
+
 	switch v.Kind() {
 	case reflect.Map:
 		if fc.fuzzer.genShouldFill() {
@@ -503,33 +504,98 @@ type int63nPicker interface {
 	Int63n(int64) int64
 }
 
-type charRange struct {
-	first, last rune
+// UnicodeRange describes a sequential range of unicode characters.
+// Last must be numerically greater than First.
+type UnicodeRange struct {
+	First, Last rune
 }
+
+// UnicodeRanges describes an arbitrary number of sequential ranges of unicode characters.
+// To be useful, each range must have at least one character (First <= Last) and
+// there must be at least one range.
+type UnicodeRanges []UnicodeRange
 
 // choose returns a random unicode character from the given range, using the
 // given randomness source.
-func (cr charRange) choose(r int63nPicker) rune {
-	count := int64(cr.last - cr.first + 1)
-	return cr.first + rune(r.Int63n(count))
+func (ur UnicodeRange) choose(r int63nPicker) rune {
+	count := int64(ur.Last - ur.First + 1)
+	return ur.First + rune(r.Int63n(count))
 }
 
-var unicodeRanges = []charRange{
+// CustomStringFuzzFunc constructs a FuzzFunc which produces random strings.
+// Each character is selected from the range ur. If there are no characters
+// in the range (cr.Last < cr.First), this will panic.
+func (ur UnicodeRange) CustomStringFuzzFunc() func(s *string, c Continue) {
+	ur.check()
+	return func(s *string, c Continue) {
+		*s = ur.randString(c.Rand)
+	}
+}
+
+// check is a function that used to check whether the first of ur(UnicodeRange)
+// is greater than the last one.
+func (ur UnicodeRange) check() {
+	if ur.Last < ur.First {
+		panic("The last encoding must be greater than the first one.")
+	}
+}
+
+// randString of UnicodeRange makes a random string up to 20 characters long.
+// Each character is selected form ur(UnicodeRange).
+func (ur UnicodeRange) randString(r *rand.Rand) string {
+	n := r.Intn(20)
+	sb := strings.Builder{}
+	sb.Grow(n)
+	for i := 0; i < n; i++ {
+		sb.WriteRune(ur.choose(r))
+	}
+	return sb.String()
+}
+
+// defaultUnicodeRanges sets a default unicode range when user do not set
+// CustomStringFuzzFunc() but wants fuzz string.
+var defaultUnicodeRanges = UnicodeRanges{
 	{' ', '~'},           // ASCII characters
 	{'\u00a0', '\u02af'}, // Multi-byte encoded characters
 	{'\u4e00', '\u9fff'}, // Common CJK (even longer encodings)
 }
 
-// randString makes a random string up to 20 characters long. The returned string
-// may include a variety of (valid) UTF-8 encodings.
-func randString(r *rand.Rand) string {
+// CustomStringFuzzFunc constructs a FuzzFunc which produces random strings.
+// Each character is selected from one of the ranges of ur(UnicodeRanges).
+// Each range has an equal probability of being chosen. If there are no ranges,
+// or a selected range has no characters (.Last < .First), this will panic.
+// Do not modify any of the ranges in ur after calling this function.
+func (ur UnicodeRanges) CustomStringFuzzFunc() func(s *string, c Continue) {
+	// Check unicode ranges slice is empty.
+	if len(ur) == 0 {
+		panic("UnicodeRanges is empty.")
+	}
+	// if not empty, each range should be checked.
+	for i := range ur {
+		ur[i].check()
+	}
+	return func(s *string, c Continue) {
+		*s = ur.randString(c.Rand)
+	}
+}
+
+// randString of UnicodeRanges makes a random string up to 20 characters long.
+// Each character is selected form one of the ranges of ur(UnicodeRanges),
+// and each range has an equal probability of being chosen.
+func (ur UnicodeRanges) randString(r *rand.Rand) string {
 	n := r.Intn(20)
 	sb := strings.Builder{}
 	sb.Grow(n)
 	for i := 0; i < n; i++ {
-		sb.WriteRune(unicodeRanges[r.Intn(len(unicodeRanges))].choose(r))
+		sb.WriteRune(ur[r.Intn(len(ur))].choose(r))
 	}
 	return sb.String()
+}
+
+// randString makes a random string up to 20 characters long. The returned string
+// may include a variety of (valid) UTF-8 encodings.
+func randString(r *rand.Rand) string {
+	return defaultUnicodeRanges.randString(r)
 }
 
 // randUint64 makes random 64 bit numbers.
