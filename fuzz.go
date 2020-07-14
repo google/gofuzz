@@ -526,8 +526,8 @@ func (ur UnicodeRange) choose(r int63nPicker) rune {
 // Each character is selected from the range ur. If there are no characters
 // in the range (cr.Last < cr.First), this will panic.
 func (ur UnicodeRange) CustomStringFuzzFunc() func(s *string, c Continue) {
+	ur.check()
 	return func(s *string, c Continue) {
-		ur.check()
 		*s = ur.randString(c.Rand)
 	}
 }
@@ -536,7 +536,7 @@ func (ur UnicodeRange) CustomStringFuzzFunc() func(s *string, c Continue) {
 // is greater than the last one.
 func (ur UnicodeRange) check() {
 	if ur.Last < ur.First {
-		panic("last encoding must be greater than the first one.")
+		panic("The last encoding must be greater than the first one.")
 	}
 }
 
@@ -564,16 +564,17 @@ var defaultUnicodeRanges = UnicodeRanges{
 // Each character is selected from one of the ranges of ur(UnicodeRanges).
 // Each range has an equal probability of being chosen. If there are no ranges,
 // or a selected range has no characters (.Last < .First), this will panic.
+// Do not modify any of the ranges in ur after calling this function.
 func (ur UnicodeRanges) CustomStringFuzzFunc() func(s *string, c Continue) {
+	// Check unicode ranges slice is empty.
+	if len(ur) == 0 {
+		panic("UnicodeRanges is empty.")
+	}
+	// if not empty, each range should be checked.
+	for i := range ur {
+		ur[i].check()
+	}
 	return func(s *string, c Continue) {
-		// Check unicode ranges slice is empty.
-		if len(ur) == 0 {
-			panic("Unicode ranges is empty.")
-		}
-		// if not empty, each range should be checked.
-		for i := range ur {
-			ur[i].check()
-		}
 		*s = ur.randString(c.Rand)
 	}
 }
