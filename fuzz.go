@@ -172,7 +172,7 @@ func (f *Fuzzer) genElementCount() int {
 }
 
 func (f *Fuzzer) genShouldFill() bool {
-	return f.r.Float64() > f.nilChance
+	return f.r.Float64() >= f.nilChance
 }
 
 // MaxDepth sets the maximum number of recursive fuzz calls that will be made
