@@ -515,6 +515,35 @@ func TestFuzz_SkipPattern(t *testing.T) {
 	})
 }
 
+func TestFuzz_NilChanceZero(t *testing.T) {
+	// This data source for random will result in the following four values
+	// being sampled (the first, 0, being the most interesting case):
+	//   0; 0.8727288671879787; 0.5547307616625858; 0.021885026049502695
+	data := []byte("H0000000\x00")
+	f := NewFromGoFuzz(data).NilChance(0)
+
+	var fancyStruct struct {
+		A, B, C, D *string
+	}
+	f.Fuzz(&fancyStruct) // None of the pointers should be nil, as NilChance is 0
+
+	if fancyStruct.A == nil {
+		t.Error("First value in struct was nil")
+	}
+
+	if fancyStruct.B == nil {
+		t.Error("Second value in struct was nil")
+	}
+
+	if fancyStruct.C == nil {
+		t.Error("Third value in struct was nil")
+	}
+
+	if fancyStruct.D == nil {
+		t.Error("Fourth value in struct was nil")
+	}
+}
+
 type int63mode int
 
 const (
