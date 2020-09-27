@@ -135,7 +135,7 @@ func TestFuzz_structptr(t *testing.T) {
 	checkFailed(t, failed)
 }
 
-// tryFuzz tries fuzzing up to 20 times. Fail if check() never passes, report the highest
+// tryFuzz tries fuzzing up to 30 times. Fail if check() never passes, report the highest
 // stage it ever got to.
 func tryFuzz(t *testing.T, f *Fuzzer, obj interface{}, check func() (stage int, passed bool)) {
 	t.Helper()
