@@ -403,9 +403,13 @@ type Continue struct {
 	*rand.Rand
 }
 
-// Fuzz continues fuzzing obj. obj must be a pointer.
+// Fuzz continues fuzzing obj. obj must be a pointer or a reflect.Value of a
+// pointer.
 func (c Continue) Fuzz(obj interface{}) {
-	v := reflect.ValueOf(obj)
+	v, ok := obj.(reflect.Value)
+	if !ok {
+		v = reflect.ValueOf(obj)
+	}
 	if v.Kind() != reflect.Ptr {
 		panic("needed ptr!")
 	}
@@ -418,7 +422,10 @@ func (c Continue) Fuzz(obj interface{}) {
 // conformance.  This applies only to obj and not other instances of obj's
 // type.
 func (c Continue) FuzzNoCustom(obj interface{}) {
-	v := reflect.ValueOf(obj)
+	v, ok := obj.(reflect.Value)
+	if !ok {
+		v = reflect.ValueOf(obj)
+	}
 	if v.Kind() != reflect.Ptr {
 		panic("needed ptr!")
 	}

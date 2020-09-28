@@ -136,7 +136,8 @@ func TestFuzz_structptr(t *testing.T) {
 
 // tryFuzz tries fuzzing up to 20 times. Fail if check() never passes, report the highest
 // stage it ever got to.
-func tryFuzz(t *testing.T, f *Fuzzer, obj interface{}, check func() (stage int, passed bool)) {
+func tryFuzz(t *testing.T, f fuzzer, obj interface{}, check func() (stage int, passed bool)) {
+	t.Helper()
 	maxStage := 0
 	for i := 0; i < 20; i++ {
 		f.Fuzz(obj)
@@ -149,6 +150,10 @@ func tryFuzz(t *testing.T, f *Fuzzer, obj interface{}, check func() (stage int, 
 		}
 	}
 	t.Errorf("Only ever got to stage %v", maxStage)
+}
+
+type fuzzer interface {
+	Fuzz(obj interface{})
 }
 
 func TestFuzz_structmap(t *testing.T) {
@@ -416,6 +421,22 @@ func TestFuzz_noCustom(t *testing.T) {
 	if obj4.In.Str != testPhrase {
 		t.Errorf("expected Inner custom function to have been called")
 	}
+}
+
+func TestContinue_Fuzz_WithReflectValue(t *testing.T) {
+	type obj struct {
+		Str string
+	}
+
+	f := New()
+	c := Continue{fc: &fuzzerContext{fuzzer: f}, Rand: f.r}
+
+	o := obj{}
+	v := reflect.ValueOf(&o)
+
+	tryFuzz(t, c, v, func() (int, bool) {
+		return 1, o.Str != ""
+	})
 }
 
 func TestFuzz_NumElements(t *testing.T) {
