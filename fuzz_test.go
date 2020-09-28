@@ -17,6 +17,7 @@ limitations under the License.
 package fuzz
 
 import (
+	"fmt"
 	"math/rand"
 	"reflect"
 	"regexp"
@@ -46,7 +47,13 @@ func TestFuzz_basic(t *testing.T) {
 	}{}
 
 	failed := map[string]int{}
-	for i := 0; i < 20; i++ {
+	const maxRuns = 100
+	var runs int
+	for runs = 0; runs < maxRuns; runs++ {
+		if countMaxFailures(failed) < runs-2 {
+			// exit early if everything succeeds at least twice.
+			break
+		}
 		New().Fuzz(obj)
 
 		if n, v := "i", obj.I; v == 0 {
@@ -98,13 +105,23 @@ func TestFuzz_basic(t *testing.T) {
 			failed[n] = failed[n] + 1
 		}
 	}
-	checkFailed(t, failed)
+	checkFailed(t, failed, runs)
 }
 
-func checkFailed(t *testing.T, failed map[string]int) {
+func countMaxFailures(failed map[string]int) int {
+	max := 0
+	for _, c := range failed {
+		if c > max {
+			max = c
+		}
+	}
+	return max
+}
+
+func checkFailed(t *testing.T, failed map[string]int, runs int) {
 	t.Helper()
 	for k, v := range failed {
-		if v > 18 {
+		if v > runs-2 {
 			t.Errorf("%v seems to not be getting set, was zero value %v times", k, v)
 		}
 	}
@@ -119,7 +136,13 @@ func TestFuzz_structptr(t *testing.T) {
 
 	f := New().NilChance(.5)
 	failed := map[string]int{}
-	for i := 0; i < 20; i++ {
+	const maxRuns = 100
+	var runs int
+	for runs = 0; runs < maxRuns; runs++ {
+		if countMaxFailures(failed) < runs-2 {
+			// exit early if everything succeeds at least twice.
+			break
+		}
 		f.Fuzz(obj)
 
 		if n, v := "a not nil", obj.A; v == nil {
@@ -128,29 +151,93 @@ func TestFuzz_structptr(t *testing.T) {
 		if n, v := "a nil", obj.A; v != nil {
 			failed[n] = failed[n] + 1
 		}
-		if n, v := "as", obj.A; v == nil || v.S == "" {
+		if n, v := "A.S empty", obj.A; v == nil || v.S == "" {
 			failed[n] = failed[n] + 1
 		}
 	}
-	checkFailed(t, failed)
+	checkFailed(t, failed, runs)
 }
 
-// tryFuzz tries fuzzing up to 30 times. Fail if check() never passes, report the highest
-// stage it ever got to.
-func tryFuzz(t *testing.T, f fuzzer, obj interface{}, check func() (stage int, passed bool)) {
+// tryFuzz tries fuzzing until check returns passed == true, or up to 100
+// times. Fail if check() never passes, report the highest stage it ever got
+// to.
+func tryFuzz(t *testing.T, f fuzzer, obj interface{}, check func() Stages) {
 	t.Helper()
-	maxStage := 0
-	for i := 0; i < 30; i++ {
+	var s Stages
+	for i := 0; i < 100; i++ {
 		f.Fuzz(obj)
-		stage, passed := check()
-		if stage > maxStage {
-			maxStage = stage
-		}
-		if passed {
+		got := check()
+		s = s.OrPasses(got)
+		if s.AllPassed() {
 			return
 		}
 	}
-	t.Errorf("Only ever got to stage %v", maxStage)
+	t.Errorf("Not all stages passed:\n%s", s)
+}
+
+// Stages tracks pass/fail for up to 63 stages
+type Stages struct {
+	mask   uint64
+	passed uint64
+	failed uint64
+}
+
+func DeclareStages(N uint) Stages {
+	if N >= 63 {
+		panic("the math below only works up to 63")
+	}
+	return Stages{
+		// Exercise for the reader: make this work for all 64 bits.
+		mask: (uint64(1) << N) - 1,
+	}
+}
+func (s Stages) String() string {
+	explain := map[uint64]string{
+		0: "never passed",
+		1: "passed",
+	}
+	var parts []string
+	for u := uint(0); s.mask != 0; u++ {
+		parts = append(parts, fmt.Sprintf("stage %v: %v", u, explain[s.passed&1]))
+		s.mask >>= 1
+		s.passed >>= 1
+	}
+	return strings.Join(parts, "\n")
+}
+func (s Stages) OrPasses(s2 Stages) Stages {
+	if s.mask == 0 {
+		// Allow accumulating without knowing the number of stages
+		s.mask = s2.mask
+	}
+	if s.mask != s2.mask {
+		panic("coding error, stages are differently typed")
+	}
+	s.passed |= (s2.passed & ^s2.failed)
+	return s
+}
+func (s Stages) AllPassed() bool {
+	return (s.passed & ^s.failed) == s.mask
+}
+
+// Stage records pass/fail for stage n, and returns `pass` so it can be used to
+// do conditional stages in an `if` statement.  If called multiple times for
+// the same stage, every call for that stage must pass.
+//
+// Don't use Stage for things where seeing a failure once should fail the whole
+// test regardless of retries.
+func (s *Stages) Stage(n uint, pass bool) bool {
+	if pass {
+		s.passed |= 1 << n
+		if s.passed > s.mask {
+			panic("passed a stage that wasn't declared?")
+		}
+	} else {
+		s.failed |= 1 << n
+		if s.failed > s.mask {
+			panic("passed a stage that wasn't declared?")
+		}
+	}
+	return pass
 }
 
 type fuzzer interface {
@@ -167,37 +254,22 @@ func TestFuzz_structmap(t *testing.T) {
 		B map[string]string
 	}{}
 
-	tryFuzz(t, New(), obj, func() (int, bool) {
-		if obj.A == nil {
-			return 1, false
-		}
-		if len(obj.A) == 0 {
-			return 2, false
-		}
+	tryFuzz(t, New(), obj, func() Stages {
+		s := DeclareStages(8)
+		s.Stage(0, obj.A != nil)
+		s.Stage(1, len(obj.A) != 0)
 		for k, v := range obj.A {
-			if k.S == "" {
-				return 3, false
-			}
-			if v.S2 == "" {
-				return 4, false
-			}
+			s.Stage(2, k.S != "")
+			s.Stage(3, v.S2 != "")
 		}
 
-		if obj.B == nil {
-			return 5, false
-		}
-		if len(obj.B) == 0 {
-			return 6, false
-		}
+		s.Stage(4, obj.B != nil)
+		s.Stage(5, len(obj.B) != 0)
 		for k, v := range obj.B {
-			if k == "" {
-				return 7, false
-			}
-			if v == "" {
-				return 8, false
-			}
+			s.Stage(6, k != "")
+			s.Stage(7, v != "")
 		}
-		return 9, true
+		return s
 	})
 }
 
@@ -209,31 +281,20 @@ func TestFuzz_structslice(t *testing.T) {
 		B []string
 	}{}
 
-	tryFuzz(t, New(), obj, func() (int, bool) {
-		if obj.A == nil {
-			return 1, false
-		}
-		if len(obj.A) == 0 {
-			return 2, false
-		}
+	tryFuzz(t, New(), obj, func() Stages {
+		s := DeclareStages(6)
+		s.Stage(0, obj.A != nil)
+		s.Stage(1, len(obj.A) != 0)
 		for _, v := range obj.A {
-			if v.S == "" {
-				return 3, false
-			}
+			s.Stage(2, v.S != "")
 		}
 
-		if obj.B == nil {
-			return 4, false
-		}
-		if len(obj.B) == 0 {
-			return 5, false
-		}
+		s.Stage(3, obj.B != nil)
+		s.Stage(4, len(obj.B) != 0)
 		for _, v := range obj.B {
-			if v == "" {
-				return 6, false
-			}
+			s.Stage(5, v != "")
 		}
-		return 7, true
+		return s
 	})
 }
 
@@ -245,19 +306,16 @@ func TestFuzz_structarray(t *testing.T) {
 		B [2]int
 	}{}
 
-	tryFuzz(t, New(), obj, func() (int, bool) {
+	tryFuzz(t, New(), obj, func() Stages {
+		s := DeclareStages(2)
 		for _, v := range obj.A {
-			if v.S == "" {
-				return 1, false
-			}
+			s.Stage(0, v.S != "")
 		}
 
 		for _, v := range obj.B {
-			if v == 0 {
-				return 2, false
-			}
+			s.Stage(1, v != 0)
 		}
-		return 3, true
+		return s
 	})
 }
 
@@ -280,26 +338,17 @@ func TestFuzz_custom(t *testing.T) {
 		},
 	)
 
-	tryFuzz(t, f, obj, func() (int, bool) {
-		if obj.A != testPhrase {
-			return 1, false
+	tryFuzz(t, f, obj, func() Stages {
+		s := DeclareStages(6)
+		s.Stage(0, obj.A == testPhrase)
+		if s.Stage(1, obj.B != nil) {
+			s.Stage(2, *obj.B == testPhrase)
 		}
-		if obj.B == nil {
-			return 2, false
+		s.Stage(3, reflect.DeepEqual(testMap, obj.C))
+		if s.Stage(4, obj.D != nil) {
+			s.Stage(5, reflect.DeepEqual(testMap, *obj.D))
 		}
-		if *obj.B != testPhrase {
-			return 3, false
-		}
-		if e, a := testMap, obj.C; !reflect.DeepEqual(e, a) {
-			return 4, false
-		}
-		if obj.D == nil {
-			return 5, false
-		}
-		if e, a := testMap, *obj.D; !reflect.DeepEqual(e, a) {
-			return 6, false
-		}
-		return 7, true
+		return s
 	})
 }
 
@@ -316,21 +365,19 @@ func TestFuzz_interface(t *testing.T) {
 	f := New()
 
 	var obj1 SelfFuzzer
-	tryFuzz(t, f, &obj1, func() (int, bool) {
-		if obj1 != selfFuzzerTestPhrase {
-			return 1, false
-		}
-		return 1, true
+	tryFuzz(t, f, &obj1, func() Stages {
+		s := DeclareStages(1)
+		s.Stage(0, obj1 == selfFuzzerTestPhrase)
+		return s
 	})
 
 	var obj2 map[int]SelfFuzzer
-	tryFuzz(t, f, &obj2, func() (int, bool) {
+	tryFuzz(t, f, &obj2, func() Stages {
+		s := DeclareStages(1)
 		for _, v := range obj2 {
-			if v != selfFuzzerTestPhrase {
-				return 1, false
-			}
+			s.Stage(0, v == selfFuzzerTestPhrase)
 		}
-		return 1, true
+		return s
 	})
 }
 
@@ -344,21 +391,19 @@ func TestFuzz_interfaceAndFunc(t *testing.T) {
 	)
 
 	var obj1 SelfFuzzer
-	tryFuzz(t, f, &obj1, func() (int, bool) {
-		if obj1 != privateTestPhrase {
-			return 1, false
-		}
-		return 1, true
+	tryFuzz(t, f, &obj1, func() Stages {
+		s := DeclareStages(1)
+		s.Stage(0, obj1 == privateTestPhrase)
+		return s
 	})
 
 	var obj2 map[int]SelfFuzzer
-	tryFuzz(t, f, &obj2, func() (int, bool) {
+	tryFuzz(t, f, &obj2, func() Stages {
+		s := DeclareStages(1)
 		for _, v := range obj2 {
-			if v != privateTestPhrase {
-				return 1, false
-			}
+			s.Stage(0, v == privateTestPhrase)
 		}
-		return 1, true
+		return s
 	})
 }
 
@@ -435,8 +480,10 @@ func TestContinue_Fuzz_WithReflectValue(t *testing.T) {
 	o := obj{}
 	v := reflect.ValueOf(&o)
 
-	tryFuzz(t, c, v, func() (int, bool) {
-		return 1, o.Str != ""
+	tryFuzz(t, c, v, func() Stages {
+		s := DeclareStages(1)
+		s.Stage(0, o.Str != "")
+		return s
 	})
 }
 
@@ -446,17 +493,16 @@ func TestFuzz_NumElements(t *testing.T) {
 		A []int
 	}{}
 
-	tryFuzz(t, f, obj, func() (int, bool) {
-		if obj.A == nil {
-			return 1, false
+	tryFuzz(t, f, obj, func() Stages {
+		s := DeclareStages(3)
+		s.Stage(0, obj.A != nil)
+		s.Stage(1, len(obj.A) == 0)
+		s.Stage(2, len(obj.A) == 1)
+
+		if len(obj.A) > 1 {
+			t.Errorf("we should never see more than 1 element, saw %v", len(obj.A))
 		}
-		return 2, len(obj.A) == 0
-	})
-	tryFuzz(t, f, obj, func() (int, bool) {
-		if obj.A == nil {
-			return 3, false
-		}
-		return 4, len(obj.A) == 1
+		return s
 	})
 }
 
@@ -520,20 +566,17 @@ func TestFuzz_SkipPattern(t *testing.T) {
 	f := New().NilChance(0).SkipFieldsWithPattern(regexp.MustCompile(`^XXX_`))
 	f.Fuzz(obj)
 
-	tryFuzz(t, f, obj, func() (int, bool) {
-		if obj.XXX_S != "" {
-			return 1, false
+	tryFuzz(t, f, obj, func() Stages {
+		s := DeclareStages(2)
+		s.Stage(0, obj.S_XXX != "")
+		s.Stage(1, obj.In.S2_XXX != "")
+		if a := obj.XXX_S; a != "" {
+			t.Errorf("XXX_S not skipped, got %v", a)
 		}
-		if obj.S_XXX == "" {
-			return 2, false
+		if a := obj.In.XXX_S1; a != "" {
+			t.Errorf("In.XXX_S not skipped, got %v", a)
 		}
-		if obj.In.XXX_S1 != "" {
-			return 3, false
-		}
-		if obj.In.S2_XXX == "" {
-			return 4, false
-		}
-		return 5, true
+		return s
 	})
 }
 
