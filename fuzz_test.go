@@ -46,7 +46,7 @@ func TestFuzz_basic(t *testing.T) {
 	}{}
 
 	failed := map[string]int{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		New().Fuzz(obj)
 
 		if n, v := "i", obj.I; v == 0 {
@@ -102,8 +102,9 @@ func TestFuzz_basic(t *testing.T) {
 }
 
 func checkFailed(t *testing.T, failed map[string]int) {
+	t.Helper()
 	for k, v := range failed {
-		if v > 8 {
+		if v > 18 {
 			t.Errorf("%v seems to not be getting set, was zero value %v times", k, v)
 		}
 	}
@@ -118,7 +119,7 @@ func TestFuzz_structptr(t *testing.T) {
 
 	f := New().NilChance(.5)
 	failed := map[string]int{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		f.Fuzz(obj)
 
 		if n, v := "a not nil", obj.A; v == nil {
@@ -134,12 +135,12 @@ func TestFuzz_structptr(t *testing.T) {
 	checkFailed(t, failed)
 }
 
-// tryFuzz tries fuzzing up to 20 times. Fail if check() never passes, report the highest
+// tryFuzz tries fuzzing up to 30 times. Fail if check() never passes, report the highest
 // stage it ever got to.
 func tryFuzz(t *testing.T, f fuzzer, obj interface{}, check func() (stage int, passed bool)) {
 	t.Helper()
 	maxStage := 0
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 30; i++ {
 		f.Fuzz(obj)
 		stage, passed := check()
 		if stage > maxStage {
