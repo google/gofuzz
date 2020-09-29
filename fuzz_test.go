@@ -27,7 +27,7 @@ import (
 )
 
 func TestFuzz_basic(t *testing.T) {
-	obj := &struct {
+	obj := struct {
 		I    int
 		I8   int8
 		I16  int16
@@ -46,116 +46,44 @@ func TestFuzz_basic(t *testing.T) {
 		C128 complex128
 	}{}
 
-	failed := map[string]int{}
-	const maxRuns = 100
-	var runs int
-	for runs = 0; runs < maxRuns; runs++ {
-		if countMaxFailures(failed) < runs-2 {
-			// exit early if everything succeeds at least twice.
-			break
-		}
-		New().Fuzz(obj)
-
-		if n, v := "i", obj.I; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "i8", obj.I8; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "i16", obj.I16; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "i32", obj.I32; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "i64", obj.I64; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "u", obj.U; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "u8", obj.U8; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "u16", obj.U16; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "u32", obj.U32; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "u64", obj.U64; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "uptr", obj.Uptr; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "s", obj.S; v == "" {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "b", obj.B; v == false {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "t", obj.T; v.IsZero() {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "c64", obj.C64; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "c128", obj.C128; v == 0 {
-			failed[n] = failed[n] + 1
-		}
-	}
-	checkFailed(t, failed, runs)
-}
-
-func countMaxFailures(failed map[string]int) int {
-	max := 0
-	for _, c := range failed {
-		if c > max {
-			max = c
-		}
-	}
-	return max
-}
-
-func checkFailed(t *testing.T, failed map[string]int, runs int) {
-	t.Helper()
-	for k, v := range failed {
-		if v > runs-2 {
-			t.Errorf("%v seems to not be getting set, was zero value %v times", k, v)
-		}
-	}
+	tryFuzz(t, New(), &obj, func() Stages {
+		s := DeclareStages(16)
+		s.Stage(0, obj.I != 0)
+		s.Stage(1, obj.I8 != 0)
+		s.Stage(2, obj.I16 != 0)
+		s.Stage(3, obj.I32 != 0)
+		s.Stage(4, obj.I64 != 0)
+		s.Stage(5, obj.U != 0)
+		s.Stage(6, obj.U8 != 0)
+		s.Stage(7, obj.U16 != 0)
+		s.Stage(8, obj.U32 != 0)
+		s.Stage(9, obj.U64 != 0)
+		s.Stage(10, obj.Uptr != 0)
+		s.Stage(11, obj.S != "")
+		s.Stage(12, obj.B == true)
+		s.Stage(13, !obj.T.IsZero())
+		s.Stage(14, obj.C64 != 0)
+		s.Stage(15, obj.C128 != 0)
+		return s
+	})
 }
 
 func TestFuzz_structptr(t *testing.T) {
-	obj := &struct {
+	obj := struct {
 		A *struct {
 			S string
 		}
 	}{}
 
 	f := New().NilChance(.5)
-	failed := map[string]int{}
-	const maxRuns = 100
-	var runs int
-	for runs = 0; runs < maxRuns; runs++ {
-		if countMaxFailures(failed) < runs-2 {
-			// exit early if everything succeeds at least twice.
-			break
+	tryFuzz(t, f, &obj, func() Stages {
+		s := DeclareStages(3)
+		s.Stage(0, obj.A == nil)
+		if s.Stage(1, obj.A != nil) {
+			s.Stage(2, obj.A.S != "")
 		}
-		f.Fuzz(obj)
-
-		if n, v := "a not nil", obj.A; v == nil {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "a nil", obj.A; v != nil {
-			failed[n] = failed[n] + 1
-		}
-		if n, v := "A.S empty", obj.A; v == nil || v.S == "" {
-			failed[n] = failed[n] + 1
-		}
-	}
-	checkFailed(t, failed, runs)
+		return s
+	})
 }
 
 // tryFuzz tries fuzzing until check returns passed == true, or up to 100
@@ -191,6 +119,7 @@ func DeclareStages(N uint) Stages {
 		mask: (uint64(1) << N) - 1,
 	}
 }
+
 func (s Stages) String() string {
 	explain := map[uint64]string{
 		0: "never passed",
@@ -204,9 +133,11 @@ func (s Stages) String() string {
 	}
 	return strings.Join(parts, "\n")
 }
+
 func (s Stages) OrPasses(s2 Stages) Stages {
 	if s.mask == 0 {
-		// Allow accumulating without knowing the number of stages
+		// Allow accumulating without knowing the number of stages in
+		// advance
 		s.mask = s2.mask
 	}
 	if s.mask != s2.mask {
@@ -215,6 +146,7 @@ func (s Stages) OrPasses(s2 Stages) Stages {
 	s.passed |= (s2.passed & ^s2.failed)
 	return s
 }
+
 func (s Stages) AllPassed() bool {
 	return (s.passed & ^s.failed) == s.mask
 }
