@@ -231,7 +231,7 @@ func ExampleCustomString() {
 
 	// example for generating custom string within one unicode range.
 	var A string
-	unicodeRange := fuzz.UnicodeRange{'a', 'z'}
+	unicodeRange := fuzz.UnicodeRange{First: 'a', Last: 'z'}
 
 	f := fuzz.New().Funcs(unicodeRange.CustomStringFuzzFunc())
 	f.Fuzz(&A)
@@ -246,8 +246,8 @@ func ExampleCustomString() {
 	// example for generating custom string within multiple unicode range.
 	var B string
 	unicodeRanges := fuzz.UnicodeRanges{
-		{'a', 'z'},
-		{'0', '9'}, // You can also use 0x0030 as 0, 0x0039 as 9.
+		{First: 'a', Last: 'z'},
+		{First: '0', Last: '9'}, // You can also use 0x0030 as 0, 0x0039 as 9.
 	}
 	ff := fuzz.New().Funcs(unicodeRanges.CustomStringFuzzFunc())
 	ff.Fuzz(&B)
