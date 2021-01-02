@@ -632,10 +632,10 @@ func TestNewFromGoFuzz(t *testing.T) {
 
 	input := []byte{1, 2, 3}
 
-	var got int
+	var got int64
 	NewFromGoFuzz(input).Fuzz(&got)
 
-	if want := 5563767293437588600; want != got {
+	if want := int64(5563767293437588600); want != got {
 		t.Errorf("Fuzz(%q) = %d, want: %d", input, got, want)
 	}
 }
