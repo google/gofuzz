@@ -91,9 +91,9 @@ func TestByteSourceValues(t *testing.T) {
 
 	r := rand.New(New(data))
 
-	got := []int{r.Int(), r.Int(), r.Int(), r.Int(), r.Int()}
+	got := []int64{r.Int63(), r.Int63(), r.Int63(), r.Int63(), r.Int63()}
 
-	want := []int{
+	want := []int64{
 		3568552425102051206,
 		3568552489526560135,
 		3568569467532292485,
