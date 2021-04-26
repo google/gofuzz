@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -625,6 +626,18 @@ func Test_UnicodeRanges_CustomStringFuzzFunc(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestFuzzThreadSafety lets the racedetector find races
+func TestFuzzThreadSafety(t *testing.T) {
+	f := New()
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() { f.Fuzz(&[]string{}); wg.Done() }()
+	go func() { f.Fuzz(&[]string{}); wg.Done() }()
+	wg.Wait()
 }
 
 func TestNewFromGoFuzz(t *testing.T) {
