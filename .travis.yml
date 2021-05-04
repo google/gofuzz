@@ -7,4 +7,4 @@ go:
   - master
 
 script:
-  - go test -cover
+  - go test -race -cover
