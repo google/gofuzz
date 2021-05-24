@@ -483,6 +483,34 @@ func TestFuzz_Maxdepth(t *testing.T) {
 	}
 }
 
+func TestFuzzer_AllowUnexportedFields(t *testing.T) {
+	type S struct {
+		stringField string
+	}
+
+	f := New().NilChance(0)
+
+	obj := S{}
+	f.Fuzz(&obj)
+	if obj.stringField != "" {
+		t.Errorf("Expected obj.stringField to be empty")
+	}
+
+	f.AllowUnexportedFields(true)
+	obj = S{}
+	f.Fuzz(&obj)
+	if obj.stringField == "" {
+		t.Errorf("Expected stringFiled not empty")
+	}
+
+	f.AllowUnexportedFields(false)
+	obj = S{}
+	f.Fuzz(&obj)
+	if obj.stringField != "" {
+		t.Errorf("Expected obj.stringField to be empty")
+	}
+}
+
 func TestFuzz_SkipPattern(t *testing.T) {
 	obj := &struct {
 		S1    string
