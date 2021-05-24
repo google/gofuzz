@@ -34,15 +34,15 @@ type fuzzFuncMap map[reflect.Type]reflect.Value
 
 // Fuzzer knows how to fill any object with random fields.
 type Fuzzer struct {
-	fuzzFuncs         fuzzFuncMap
-	defaultFuzzFuncs  fuzzFuncMap
-	r                 *rand.Rand
-	nilChance         float64
-	minElements       int
-	maxElements       int
-	maxDepth          int
+	fuzzFuncs             fuzzFuncMap
+	defaultFuzzFuncs      fuzzFuncMap
+	r                     *rand.Rand
+	nilChance             float64
+	minElements           int
+	maxElements           int
+	maxDepth              int
 	allowUnexportedFields bool
-	skipFieldPatterns []*regexp.Regexp
+	skipFieldPatterns     []*regexp.Regexp
 
 	fuzzLock sync.Mutex
 }
@@ -59,12 +59,12 @@ func NewWithSeed(seed int64) *Fuzzer {
 			reflect.TypeOf(&time.Time{}): reflect.ValueOf(fuzzTime),
 		},
 
-		fuzzFuncs:   fuzzFuncMap{},
-		r:           rand.New(rand.NewSource(seed)),
-		nilChance:   .2,
-		minElements: 1,
-		maxElements: 10,
-		maxDepth:    100,
+		fuzzFuncs:             fuzzFuncMap{},
+		r:                     rand.New(rand.NewSource(seed)),
+		nilChance:             .2,
+		minElements:           1,
+		maxElements:           10,
+		maxDepth:              100,
 		allowUnexportedFields: false,
 	}
 	return f
@@ -191,7 +191,7 @@ func (f *Fuzzer) MaxDepth(d int) *Fuzzer {
 
 // AllowUnexportedFields decides whether to do fuzz on the unexported fields,
 // i.e. the fields that start with lower case letter.
-func (f *Fuzzer) AllowUnexportedFields(flag bool) *Fuzzer{
+func (f *Fuzzer) AllowUnexportedFields(flag bool) *Fuzzer {
 	f.allowUnexportedFields = flag
 	return f
 }
@@ -273,11 +273,10 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	defer func() { fc.curDepth-- }()
 
 	if !v.CanSet() {
-		if fc.fuzzer.allowUnexportedFields && v.CanAddr() {
-			v = reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
-		} else {
+		if !fc.fuzzer.allowUnexportedFields || !v.CanAddr() {
 			return
 		}
+		v = reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
 	}
 
 	if flags&flagNoCustomFuzz == 0 {
