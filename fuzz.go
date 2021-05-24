@@ -273,9 +273,9 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	defer func() { fc.curDepth-- }()
 
 	if !v.CanSet() {
-		if fc.fuzzer.allowUnexportedFields{
+		if fc.fuzzer.allowUnexportedFields && v.CanAddr() {
 			v = reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem()
-		}else{
+		} else {
 			return
 		}
 	}

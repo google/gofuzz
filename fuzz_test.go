@@ -492,21 +492,21 @@ func TestFuzzer_AllowUnexportedFields(t *testing.T) {
 
 	obj := S{}
 	f.Fuzz(&obj)
-	if obj.stringField != ""{
+	if obj.stringField != "" {
 		t.Errorf("Expected obj.stringField to be empty")
 	}
 
 	f.AllowUnexportedFields(true)
 	obj = S{}
 	f.Fuzz(&obj)
-	if obj.stringField == ""{
+	if obj.stringField == "" {
 		t.Errorf("Expected stringFiled not empty")
 	}
 
 	f.AllowUnexportedFields(false)
 	obj = S{}
 	f.Fuzz(&obj)
-	if obj.stringField != ""{
+	if obj.stringField != "" {
 		t.Errorf("Expected obj.stringField to be empty")
 	}
 }
