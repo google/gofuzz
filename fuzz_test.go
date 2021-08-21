@@ -27,6 +27,22 @@ import (
 	"time"
 )
 
+func TestFuzz_invalid(t *testing.T) {
+	// In this test, dst.Err is an empty interface,
+	// which cannot be fuzzed (dst.Err kind is reflect.Invalid)
+	// When fuzzer.Fuzz is called on dst, it must NOT panic.
+	var dst struct {
+		Valid string
+		Err   error
+	}
+
+	fuzzer := New()
+	fuzzer.Fuzz(&dst)
+
+	if dst.Valid == "" {
+		t.Error("dst.Valid should have been fuzzed")
+	}
+}
 func TestFuzz_basic(t *testing.T) {
 	obj := struct {
 		I    int

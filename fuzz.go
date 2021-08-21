@@ -25,8 +25,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/google/gofuzz/bytesource"
 	"strings"
+
+	"github.com/google/gofuzz/bytesource"
 )
 
 // fuzzFuncMap is a map from a type to a fuzzFunc that handles that type.
@@ -355,6 +356,8 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 		fallthrough
 	case reflect.Interface:
 		fallthrough
+	case reflect.Invalid:
+		return
 	default:
 		panic(fmt.Sprintf("Can't handle %#v", v.Interface()))
 	}
