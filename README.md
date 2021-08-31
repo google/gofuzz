@@ -4,7 +4,6 @@ gofuzz
 gofuzz is a library for populating go objects with random values.
 
 [![GoDoc](https://godoc.org/github.com/google/gofuzz?status.svg)](https://godoc.org/github.com/google/gofuzz)
-[![Travis](https://travis-ci.org/google/gofuzz.svg?branch=master)](https://travis-ci.org/google/gofuzz)
 
 This is useful for testing:
 
