@@ -109,7 +109,7 @@ func NewFromGoFuzz(data []byte) *Fuzzer {
 // These functions are called sensibly, e.g., if you wanted custom string
 // fuzzing, the function `func(s *string, c fuzz.Continue)` would get
 // called and passed the address of strings. Maps and pointers will always
-// be made/new'd for you, ignoring the NilChange option. For slices, it
+// be made/new'd for you, ignoring the NilChance option. For slices, it
 // doesn't make much sense to  pre-create them--Fuzzer doesn't know how
 // long you want your slice--so take a pointer to a slice, and make it
 // yourself. (If you don't want your map/pointer type pre-made, take a
