@@ -25,8 +25,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/google/gofuzz/bytesource"
 	"strings"
+
+	"github.com/google/gofuzz/bytesource"
 )
 
 // fuzzFuncMap is a map from a type to a fuzzFunc that handles that type.
@@ -88,12 +89,13 @@ func NewWithSeed(seed int64) *Fuzzer {
 // // +build gofuzz
 // package mypacakge
 // import fuzz "github.com/google/gofuzz"
-// func Fuzz(data []byte) int {
-// 	var i int
-// 	fuzz.NewFromGoFuzz(data).Fuzz(&i)
-// 	MyFunc(i)
-// 	return 0
-// }
+//
+//	func Fuzz(data []byte) int {
+//		var i int
+//		fuzz.NewFromGoFuzz(data).Fuzz(&i)
+//		MyFunc(i)
+//		return 0
+//	}
 func NewFromGoFuzz(data []byte) *Fuzzer {
 	return New().RandSource(bytesource.New(data))
 }
@@ -485,7 +487,9 @@ func fuzzTime(t *time.Time, c Continue) {
 	// Allow for about 1000 years of random time values, which keeps things
 	// like JSON parsing reasonably happy.
 	sec = c.Rand.Int63n(1000 * 365 * 24 * 60 * 60)
-	c.Fuzz(&nsec)
+	// Nanosecond values greater than 1Bn are technically allowed but result in
+	// time.Time values with invalid timezone offsets.
+	nsec = c.Rand.Int63n(999999999)
 	*t = time.Unix(sec, nsec)
 }
 
