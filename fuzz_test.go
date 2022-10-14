@@ -656,6 +656,27 @@ func Test_UnicodeRanges_CustomStringFuzzFunc(t *testing.T) {
 	})
 }
 
+func Test_NoUnserializableTimes(t *testing.T) {
+	var ti time.Time
+	f := New()
+
+	// This test is technically non-deterministic, however even before the fix it
+	// would pass when the random uint64 used for nanoseconds was less than 1
+	// billion. That is an extremely low false-negative rate but still, we try it
+	// a few times to be really sure it's not passing by accident.
+	for i := 0; i < 100; i++ {
+		f.Fuzz(&ti)
+
+		// Attempt to serialize the string to binary
+		_, err := ti.MarshalBinary()
+		if err != nil {
+			// Before the fix this fails consistently (at least in BST timezone) with:
+			//   Time.MarshalBinary: unexpected zone offset
+			t.Fatalf("failed to serialise fuzzed time: %s", err)
+		}
+	}
+}
+
 // TestFuzzThreadSafety lets the racedetector find races
 func TestFuzzThreadSafety(t *testing.T) {
 	f := New()
