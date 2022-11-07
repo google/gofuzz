@@ -511,6 +511,44 @@ func TestFuzzer_AllowUnexportedFields(t *testing.T) {
 	}
 }
 
+func TestFuzzer_AllowUnsupportedFields(t *testing.T) {
+	type S struct {
+		InterfaceField interface{}
+	}
+
+	f := New().NilChance(0)
+	obj := S{}
+
+	failingFuzz := func(obj *S) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Log("Panicked as expected")
+			}
+		}()
+		f.Fuzz(obj)
+		t.Errorf("Expected to panic")
+	}
+
+	failingFuzz(&obj)
+	if obj.InterfaceField != nil {
+		t.Errorf("Expected obj.stringField to be empty")
+	}
+
+	f.AllowUnsupportedFields(true)
+	obj = S{}
+	f.Fuzz(&obj)
+	if obj.InterfaceField != nil {
+		t.Errorf("Expected obj.stringField to be empty")
+	}
+
+	f.AllowUnsupportedFields(false)
+	obj = S{}
+	failingFuzz(&obj)
+	if obj.InterfaceField != nil {
+		t.Errorf("Expected obj.stringField to be empty")
+	}
+}
+
 func TestFuzz_SkipPattern(t *testing.T) {
 	obj := &struct {
 		S1    string
