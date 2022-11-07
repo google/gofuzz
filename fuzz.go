@@ -35,15 +35,16 @@ type fuzzFuncMap map[reflect.Type]reflect.Value
 
 // Fuzzer knows how to fill any object with random fields.
 type Fuzzer struct {
-	fuzzFuncs             fuzzFuncMap
-	defaultFuzzFuncs      fuzzFuncMap
-	r                     *rand.Rand
-	nilChance             float64
-	minElements           int
-	maxElements           int
-	maxDepth              int
-	allowUnexportedFields bool
-	skipFieldPatterns     []*regexp.Regexp
+	fuzzFuncs              fuzzFuncMap
+	defaultFuzzFuncs       fuzzFuncMap
+	r                      *rand.Rand
+	nilChance              float64
+	minElements            int
+	maxElements            int
+	maxDepth               int
+	allowUnexportedFields  bool
+	allowUnsupportedFields bool
+	skipFieldPatterns      []*regexp.Regexp
 
 	fuzzLock sync.Mutex
 }
@@ -60,13 +61,14 @@ func NewWithSeed(seed int64) *Fuzzer {
 			reflect.TypeOf(&time.Time{}): reflect.ValueOf(fuzzTime),
 		},
 
-		fuzzFuncs:             fuzzFuncMap{},
-		r:                     rand.New(rand.NewSource(seed)),
-		nilChance:             .2,
-		minElements:           1,
-		maxElements:           10,
-		maxDepth:              100,
-		allowUnexportedFields: false,
+		fuzzFuncs:              fuzzFuncMap{},
+		r:                      rand.New(rand.NewSource(seed)),
+		nilChance:              .2,
+		minElements:            1,
+		maxElements:            10,
+		maxDepth:               100,
+		allowUnexportedFields:  false,
+		allowUnsupportedFields: false,
 	}
 	return f
 }
@@ -195,6 +197,13 @@ func (f *Fuzzer) MaxDepth(d int) *Fuzzer {
 // i.e. the fields that start with lower case letter.
 func (f *Fuzzer) AllowUnexportedFields(flag bool) *Fuzzer {
 	f.allowUnexportedFields = flag
+	return f
+}
+
+// AllowUnsupportedFields decides whether to ignore fields that we don't support fuzzing on,
+// like interfaces and channels, by default this is not allowed and the fuzzer will panic on an unsupported field.
+func (f *Fuzzer) AllowUnsupportedFields(flag bool) *Fuzzer {
+	f.allowUnsupportedFields = flag
 	return f
 }
 
@@ -358,7 +367,9 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	case reflect.Interface:
 		fallthrough
 	default:
-		panic(fmt.Sprintf("Can't handle type %v with value %#v", v.Type(), v.Interface()))
+		if !fc.fuzzer.allowUnsupportedFields {
+			panic(fmt.Sprintf("Can't handle type %v with value %#v", v.Type(), v.Interface()))
+		}
 	}
 }
 
