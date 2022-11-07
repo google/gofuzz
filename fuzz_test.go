@@ -531,21 +531,21 @@ func TestFuzzer_AllowUnsupportedFields(t *testing.T) {
 
 	failingFuzz(&obj)
 	if obj.InterfaceField != nil {
-		t.Errorf("Expected obj.stringField to be empty")
+		t.Errorf("Expected obj.InterfaceField to be empty")
 	}
 
 	f.AllowUnsupportedFields(true)
 	obj = S{}
 	f.Fuzz(&obj)
 	if obj.InterfaceField != nil {
-		t.Errorf("Expected obj.stringField to be empty")
+		t.Errorf("Expected obj.InterfaceField to be empty")
 	}
 
 	f.AllowUnsupportedFields(false)
 	obj = S{}
 	failingFuzz(&obj)
 	if obj.InterfaceField != nil {
-		t.Errorf("Expected obj.stringField to be empty")
+		t.Errorf("Expected obj.InterfaceField to be empty")
 	}
 }
 
